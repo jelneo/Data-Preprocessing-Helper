@@ -21,5 +21,4 @@ A repo that contains helper methods to make data preprocessing easier for machin
 2. 
 
 ### Functions for data visualization
-1. Line plot for raw data
-2. Line plot for ... ?
+1. Line plot for raw data / features
