@@ -10,9 +10,11 @@ A repo that contains helper methods to make data preprocessing easier for machin
 2. Slicing from row x to row y
 3. Drop column x to column y
 4. Drop row x to row y
-5. Data segmentation
+5. Insert x new columns after column y
+6. Insert x new rows after row y
+7. Data segmentation
 
-#### Data
+#### Data Values
 1. Normalize data (handles divide by 0 case)
 
 
