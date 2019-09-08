@@ -10,6 +10,8 @@ from snappy import HashMap
 import os, gc
 from snappy import GPF
 
+UTM_WGS84_AUTO = 'PROJCS["UTM Zone 45 / World Geodetic System 1984",GEOGCS["World Geodetic System 1984",DATUM["World Geodetic System 1984",SPHEROID["WGS 84", 6378137.0, 298.257223563, AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich", 0.0, AUTHORITY["EPSG","8901"]],UNIT["degree", 0.017453292519943295],AXIS["Geodetic longitude", EAST],AXIS["Geodetic latitude", NORTH]],PROJECTION["Transverse_Mercator"],PARAMETER["central_meridian", 87.0],PARAMETER["latitude_of_origin", 0.0],PARAMETER["scale_factor", 0.9996],PARAMETER["false_easting", 500000.0],PARAMETER["false_northing", 0.0],UNIT["m", 1.0],AXIS["Easting", EAST],AXIS["Northing", NORTH]]'
+
 GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
 # HashMap = snappy.jpy.get_type('java.util.HashMap')
 
@@ -41,11 +43,16 @@ now = datetime.datetime.now()
 print('Start data preprocessing at ' + now.strftime("%Y-%m-%d %H:%M:%S"))
 print
 '''
-Does the following preprocessing steps:
-1. calibration
-2. subset
-# 3. terrain correction
-dep on product type, slc,grnd, raw 
+Does the following preprocessing steps for chosen prdt type (IW GRND level 1 prdt):
+1. thermal noise removal
+2. apply-orbit file
+3. calibration
+4. subset
+5. speckle filter
+6. terrain correction
+7. write
+
+preprocessing order depends on product type(slc,grnd,raw) and product level(0,1,2) 
 '''
 
 for folder in os.listdir(input_dir):
@@ -72,6 +79,27 @@ for folder in os.listdir(input_dir):
 
     for p in pols:
         polarization = p
+        ### THERMAL NOISE REMOVAL
+        # subset_sentinel_1 = ProductIO.readProduct(subset_path + '.dim')
+        parameters = HashMap()
+        parameters.put('removeThermalNoise', True)
+        parameters.put('reIntroduceThermalNoise', False)
+
+        noise_removal_path = output_dir + file_name + '_' + date + "_noise_removal_" + polarization
+        noise_rem_prdt = GPF.createProduct("ThermalNoiseRemoval", parameters, sentinel_1)
+        ProductIO.writeProduct(noise_rem_prdt, noise_removal_path, 'BEAM-DIMAP')
+        print 'Thermal noise removal done'
+
+        ### APPLY-ORBIT FILE
+        parameters = HashMap()
+        parameters.put('orbitType', 'Sentinel Precise (Auto Download)')
+        parameters.put('polyDegree', 3)
+        parameters.put('continueOnFail', True)
+
+        apply_orbit_path = output_dir + file_name + '_' + date + "_orbit_" + polarization
+        apply_orbit_prdt = GPF.createProduct("Apply-Orbit-File", parameters, noise_rem_prdt)
+        ProductIO.writeProduct(apply_orbit_prdt, apply_orbit_path, 'BEAM-DIMAP')
+        print 'Apply-orbit file done'
 
         ### CALIBRATION
         parameters = HashMap()
@@ -80,38 +108,47 @@ for folder in os.listdir(input_dir):
         parameters.put('selectedPolarisations', polarization)
         parameters.put('outputImageScaleInDb', False)
 
-        calib = output_dir + file_name + '_' + date + "_calibrate_" + polarization
-        # calib = output_dir + 'test_' + date + "_calibrate_" + polarization
-        target_0 = GPF.createProduct("Calibration", parameters, sentinel_1)
+        calib_path = output_dir + file_name + '_' + date + "_calibrate_" + polarization
+        # calib_path = output_dir + 'test_' + date + "_calibrate_" + polarization
+        calibrated_prdt = GPF.createProduct("Calibration", parameters, apply_orbit_prdt)
         # ProductIO.writeProduct(target_0, calib, 'GeoTIFF')
-        ProductIO.writeProduct(target_0, calib, 'BEAM-DIMAP')
+        ProductIO.writeProduct(calibrated_prdt, calib_path, 'BEAM-DIMAP')
         print 'Calibration done'
 
-        # Next, specify a subset AOI to reduce the data amount and processing time.
-        # The AOI specified by its outer polygon corners and is formatted through a Well Known Text (WKT).
-
         ### SUBSET
-
-        calibration = ProductIO.readProduct(calib + ".dim")
-
-        wkt = "POLYGON((91.13462713834258 23.503659930299406, 88.7222620230574 23.917065641765348, 88.43093071565514 22.417698128729405, 90.81621481093471 22.001211295818294, 91.13462713834258 23.503659930299406))"
+        wkt = "POLYGON ((102.12635428857155 14.248290232074497, 102.53781291893677 14.327232114630814, 102.48940057780496 14.575151504929456, 102.0774759551546 14.496314998624996, 102.12635428857155 14.248290232074497))"
 
         geom = WKTReader().read(wkt)
         parameters = HashMap()
         parameters.put('geoRegion', geom)
         parameters.put('outputImageScaleInDb', False)
 
-        subset = output_dir + file_name + '_' + date + "_subset_" + polarization
-        # subset = output_dir + 'test_' + date + "_subset_" + polarization
-        target_1 = GPF.createProduct("Subset", parameters, calibration)
+        subset_path = output_dir + file_name + '_' + date + "_subset_" + polarization
+        # subset_path = output_dir + 'test_' + date + "_subset_" + polarization
+        subset_prdt = GPF.createProduct("Subset", parameters, calibrated_prdt)
 
-        # ProductIO.writeProduct(target_1, subset, 'GeoTIFF')
-        ProductIO.writeProduct(target_1, subset, 'BEAM-DIMAP')
+        # ProductIO.writeProduct(subset_prdt, subset_path, 'GeoTIFF')
+        ProductIO.writeProduct(subset_prdt, subset_path, 'BEAM-DIMAP')
         print 'Subset done'
 
-        # Apply a Range Doppler Terrain Correction to correct for layover and foreshortening effects, by using the
-        # SRTM 3 arcsecond product (90m) that is downloaded automatically. You could also specify an own DEM product
-        # with a higher spatial resolution from a local input_dir:
+        ### SPECKLE FILTER
+        parameters = HashMap()
+        parameters.put('filter', 'Lee Sigma')
+        parameters.put('filterSizeX', 3)
+        parameters.put('filterSizeY', 3)
+        parameters.put('dampingFactor', 2)
+        parameters.put('estimateENL', True)
+        parameters.put('enl', 1.0)
+        parameters.put('numLooksStr', '1')
+        parameters.put('windowSize', '7x7')
+        parameters.put('targetWindowSizeStr', '3x3')
+        parameters.put('sigmaStr', '0.9')
+        parameters.put('anSize', 50)
+
+        speckle_path = output_dir + file_name + '_' + date + "_speckle_" + polarization
+        speckle_prdt = GPF.createProduct("Speckle-Filter", parameters, subset_prdt)
+        ProductIO.writeProduct(speckle_prdt, speckle_path, 'BEAM-DIMAP')
+        print 'Speckle filter done'
 
         ### TERRAIN CORRECTION
         parameters = HashMap()
@@ -132,13 +169,14 @@ for folder in os.listdir(input_dir):
         parameters.put('nodataValueAtSea', True)
         parameters.put('saveSigmaNought', False)
         parameters.put('incidenceAngleForSigma0', 'Use projected local incidence angle from DEM')
+        parameters.put('mapProjection', UTM_WGS84_AUTO)
         # parameters.put('sourceBands', 'Sigma0_' + polarization)
 
         terrain = output_dir + file_name + '_' + date + "_corrected_" + polarization
         # terrain = output_dir + 'test1' + '_' + date + "_corrected_" + polarization
-        target_2 = GPF.createProduct("Terrain-Correction", parameters, target_1)
-        ProductIO.writeProduct(target_2, terrain, 'GeoTIFF')
-        ProductIO.writeProduct(target_2, terrain + '_big', 'GeoTIFF-BigTIFF')
+        terrain_corrected_prdt = GPF.createProduct("Terrain-Correction", parameters, speckle_prdt)
+        ProductIO.writeProduct(terrain_corrected_prdt, terrain, 'GeoTIFF')
+        # ProductIO.writeProduct(terrain_corrected_prdt, terrain + '_big', 'GeoTIFF-BigTIFF')
         print 'Terrain correction done'
 
         print('Done with ' + polarization + ' for ' + folder)
