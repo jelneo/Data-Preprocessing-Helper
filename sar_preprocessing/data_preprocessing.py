@@ -1,4 +1,3 @@
-import snappy
 import datetime
 # For hpc
 import sys
@@ -32,7 +31,7 @@ output_dir = parent_dir + 'TestProc\\'
 
 pols = ['VV']
 
-toRun = raw_input('Run program? (Y/N)')
+toRun = input('Run program? (Y/N)')
 if toRun == 'Y' or toRun == 'y':
     pass
 else:
@@ -44,6 +43,7 @@ print('Start data preprocessing at ' + now.strftime("%Y-%m-%d %H:%M:%S"))
 print
 '''
 Does the following preprocessing steps for chosen prdt type (IW GRND level 1 prdt):
+0. read
 1. thermal noise removal
 2. apply-orbit file
 3. calibration
@@ -60,7 +60,7 @@ for folder in os.listdir(input_dir):
 
     # if '.SAFE' not in folder:
     #     continue
-    if 'S1B_IW_GRDH_1SDV_20190302T111957_20190302T112022_015175_01C61A_9D6D.SAFE' != folder:
+    if 'S1B_IW_GRDH_1SDV_20190829T112005_20190829T112030_017800_0217F9_F111.SAFE' != folder:
         continue
 
     input_file_name = input_dir + folder
@@ -88,7 +88,7 @@ for folder in os.listdir(input_dir):
         noise_removal_path = output_dir + file_name + '_' + date + "_noise_removal_" + polarization
         noise_rem_prdt = GPF.createProduct("ThermalNoiseRemoval", parameters, sentinel_1)
         ProductIO.writeProduct(noise_rem_prdt, noise_removal_path, 'BEAM-DIMAP')
-        print 'Thermal noise removal done'
+        print('Thermal noise removal done')
 
         ### APPLY-ORBIT FILE
         parameters = HashMap()
@@ -99,7 +99,7 @@ for folder in os.listdir(input_dir):
         apply_orbit_path = output_dir + file_name + '_' + date + "_orbit_" + polarization
         apply_orbit_prdt = GPF.createProduct("Apply-Orbit-File", parameters, noise_rem_prdt)
         ProductIO.writeProduct(apply_orbit_prdt, apply_orbit_path, 'BEAM-DIMAP')
-        print 'Apply-orbit file done'
+        print('Apply-orbit file done')
 
         ### CALIBRATION
         parameters = HashMap()
@@ -113,7 +113,7 @@ for folder in os.listdir(input_dir):
         calibrated_prdt = GPF.createProduct("Calibration", parameters, apply_orbit_prdt)
         # ProductIO.writeProduct(target_0, calib, 'GeoTIFF')
         ProductIO.writeProduct(calibrated_prdt, calib_path, 'BEAM-DIMAP')
-        print 'Calibration done'
+        print('Calibration done')
 
         ### SUBSET
         wkt = "POLYGON ((102.12635428857155 14.248290232074497, 102.53781291893677 14.327232114630814, 102.48940057780496 14.575151504929456, 102.0774759551546 14.496314998624996, 102.12635428857155 14.248290232074497))"
@@ -129,7 +129,7 @@ for folder in os.listdir(input_dir):
 
         # ProductIO.writeProduct(subset_prdt, subset_path, 'GeoTIFF')
         ProductIO.writeProduct(subset_prdt, subset_path, 'BEAM-DIMAP')
-        print 'Subset done'
+        print('Subset done')
 
         ### SPECKLE FILTER
         parameters = HashMap()
@@ -148,7 +148,7 @@ for folder in os.listdir(input_dir):
         speckle_path = output_dir + file_name + '_' + date + "_speckle_" + polarization
         speckle_prdt = GPF.createProduct("Speckle-Filter", parameters, subset_prdt)
         ProductIO.writeProduct(speckle_prdt, speckle_path, 'BEAM-DIMAP')
-        print 'Speckle filter done'
+        print('Speckle filter done')
 
         ### TERRAIN CORRECTION
         parameters = HashMap()
@@ -177,11 +177,10 @@ for folder in os.listdir(input_dir):
         terrain_corrected_prdt = GPF.createProduct("Terrain-Correction", parameters, speckle_prdt)
         ProductIO.writeProduct(terrain_corrected_prdt, terrain, 'GeoTIFF')
         # ProductIO.writeProduct(terrain_corrected_prdt, terrain + '_big', 'GeoTIFF-BigTIFF')
-        print 'Terrain correction done'
+        print('Terrain correction done')
 
         print('Done with ' + polarization + ' for ' + folder)
-        print
-
+        print()
 if 'win' in sys.platform:
     import winsound
     duration = 1000  # milliseconds
