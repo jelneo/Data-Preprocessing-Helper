@@ -35,7 +35,7 @@ def get_orbit_config():
     return parameters
 
 
-def get_calibration_config(polarization):
+def get_calibration_config(polarization: str):
     parameters = HashMap()
     parameters.put("outputSigmaBand", True)
     parameters.put("selectedPolarisations", polarization)
@@ -71,7 +71,7 @@ def get_terrain_correction_config():
     parameters = HashMap()
     parameters.put("demResamplingMethod", "BILINEAR_INTERPOLATION")
     parameters.put("imgResamplingMethod", "BILINEAR_INTERPOLATION")
-    parameters.put("demName", "SRTM 3Sec")
+    parameters.put("demName", "SRTM 1Sec HGT") # ~25 to 30m
     parameters.put("alignToStandardGrid", False)
     parameters.put("saveDEM", False)
     parameters.put("saveLatLon", False)
