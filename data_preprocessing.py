@@ -5,6 +5,7 @@ import os, gc
 
 from snappy import ProductIO
 from snappy import GPF
+import snappyoperators as sp
 
 import snappyconfigs
 
@@ -29,7 +30,7 @@ elif usr_system == "Linux":
     output_dir = input_dir + "Processing/"
     manifest_extension = "/manifest.safe"
 else:
-    print("Unrecognized system, no directory set.\nProgram exiting...")
+    print("No directory set.\nProgram exiting...")
     exit(1)
 
 toRun = input("Run program? (Y/N)")
@@ -54,7 +55,7 @@ Does the following preprocessing steps for chosen prdt type (IW GRND level 1 prd
 5. speckle filter
 6. terrain correction
 7. write
-
+add GLCM???
 preprocessing order depends on product type(slc,grnd,raw) and product level(0,1,2) 
 """
 
@@ -79,47 +80,35 @@ for folder in os.listdir(input_dir):
     print(sentinel_1)
 
     ### THERMAL NOISE REMOVAL
-    parameters = snappyconfigs.get_thermal_noise_removal_config()
+    noise_rem_prdt = sp.thermal_noise_removal(sentinel_1)
     noise_removal_path = output_dir + file_name + "_" + "_noise_removal"
-    noise_rem_prdt = GPF.createProduct("ThermalNoiseRemoval", parameters, sentinel_1)
     ProductIO.writeProduct(noise_rem_prdt, noise_removal_path, "BEAM-DIMAP")
-    print("Thermal noise removal done")
 
     ### APPLY-ORBIT FILE
-    parameters = snappyconfigs.get_thermal_noise_removal_config()
+    apply_orbit_prdt = sp.apply_orbit_file(noise_rem_prdt)
     apply_orbit_path = output_dir + file_name + "_" + "_orbit"
-    apply_orbit_prdt = GPF.createProduct("Apply-Orbit-File", parameters, noise_rem_prdt)
     ProductIO.writeProduct(apply_orbit_prdt, apply_orbit_path, "BEAM-DIMAP")
-    print("Apply-orbit file done")
 
     ### CALIBRATION
-    parameters = snappyconfigs.get_calibration_config(polarizations)
+    calibrated_prdt = sp.calibration(apply_orbit_prdt, polarizations)
     calib_path = output_dir + file_name + "_" + "_calibrate"
-    calibrated_prdt = GPF.createProduct("Calibration", parameters, apply_orbit_prdt)
     ProductIO.writeProduct(calibrated_prdt, calib_path, "BEAM-DIMAP")
-    print("Calibration done")
-
-    ### SUBSET
-    parameters = snappyconfigs.get_subset_config(AOI_WKT)
-    subset_path = output_dir + file_name + "_" + "_subset"
-    subset_prdt = GPF.createProduct("Subset", parameters, calibrated_prdt)
-    ProductIO.writeProduct(subset_prdt, subset_path, "BEAM-DIMAP")
-    print("Subset done")
 
     ### SPECKLE FILTER
-    parameters = snappyconfigs.get_speckle_filter_config()
+    speckle_prdt = sp.speckle_filter(calibrated_prdt)
     speckle_path = output_dir + file_name + "_" + "_speckle"
-    speckle_prdt = GPF.createProduct("Speckle-Filter", parameters, subset_prdt)
     ProductIO.writeProduct(speckle_prdt, speckle_path, "BEAM-DIMAP")
-    print("Speckle filter done")
 
     ### TERRAIN CORRECTION
-    parameters = snappyconfigs.get_terrain_correction_config()
+    terrain_corrected_prdt = sp.terrain_correction(speckle_prdt, snappyconfigs.UTM_WGS84_AUTO, 10.0)
     terrain = output_dir + file_name + "_" + "_corrected"
-    terrain_corrected_prdt = GPF.createProduct("Terrain-Correction", parameters, speckle_prdt)
     ProductIO.writeProduct(terrain_corrected_prdt, terrain, "GeoTIFF")
     # ProductIO.writeProduct(terrain_corrected_prdt, terrain + "_big", "GeoTIFF-BigTIFF")
-    print("Terrain correction done")
+
+    ### SUBSET
+    subset_prdt = sp.subset(calibrated_prdt, AOI_WKT)
+    subset_path = output_dir + file_name + "_" + "_subset"
+    ProductIO.writeProduct(subset_prdt, subset_path, "BEAM-DIMAP")
     print()
 
 now = datetime.datetime.now()
