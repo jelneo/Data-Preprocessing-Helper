@@ -1,15 +1,9 @@
 from snappy import HashMap
 from snappy import WKTReader
+from snappy import jpy
 
-"""
-This file contains parameter hash maps for snappy"s preprocessing operators:
-1. thermal noise removal
-2. apply-orbit file
-3. calibration
-4. subset
-5. speckle filter
-6. terrain correction
-"""
+SRTM1SEC = "SRTM 1Sec HGT"
+
 UTM_WGS84_AUTO = "PROJCS[\"UTM Zone 45 / World Geodetic System 1984\",GEOGCS[\"World Geodetic System 1984\",DATUM[\"World " \
                  "Geodetic System 1984\",SPHEROID[\"WGS 84\", 6378137.0, 298.257223563, AUTHORITY[\"EPSG\",\"7030\"]]," \
                  "AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\", 0.0, AUTHORITY[\"EPSG\",\"8901\"]]," \
@@ -22,6 +16,17 @@ UTM_WGS84_AUTO = "PROJCS[\"UTM Zone 45 / World Geodetic System 1984\",GEOGCS[\"W
 UTM_WGS84 = "GEOGCS[\"WGS84(DD)\",DATUM[\"WGS84\",SPHEROID[\"WGS84\", 6378137.0, 298.257223563]]," \
             "PRIMEM[\"Greenwich\", 0.0],UNIT[\"degree\", 0.017453292519943295],AXIS[\"Geodetic longitude\", EAST]," \
             "AXIS[\"Geodetic latitude\", NORTH]] "
+
+"""
+This file contains parameter hash maps for snappy"s preprocessing operators:
+1. thermal noise removal
+2. apply-orbit file
+3. calibration
+4. subset
+5. speckle filter
+6. terrain correction
+"""
+
 
 def get_thermal_noise_removal_config():
     parameters = HashMap()
@@ -77,7 +82,7 @@ def get_terrain_correction_config(map_projection, pixel_spacing_in_meter: float)
     parameters.put("imgResamplingMethod", "BILINEAR_INTERPOLATION")
     parameters.put("externalDEMApplyEGM", True)
     parameters.put("externalDEMNoDataValue", 0.0)
-    parameters.put("demName", "SRTM 1Sec HGT") # ~25 to 30m
+    parameters.put("demName", SRTM1SEC)  # ~25 to 30m
     parameters.put("alignToStandardGrid", False)
     parameters.put("saveDEM", False)
     parameters.put("saveLatLon", False)
@@ -136,7 +141,7 @@ def get_topsar_split_config(subswath: str, first, last, polarizations):
 
 def get_back_geocoding_config():
     parameters = HashMap()
-    parameters.put("demName", "SRTM 1Sec HGT")
+    parameters.put("demName", SRTM1SEC)
     parameters.put("demResamplingMethod", "BICUBIC_INTERPOLATION")
     parameters.put("externalDEMNoDataValue", 0.0)
     parameters.put("resamplingType", "BISINC_5_POINT_INTERPOLATION")
@@ -175,7 +180,7 @@ def get_interferogram_config():
     parameters.put("cohWinRg", 20)
     parameters.put("squarePixel", True)
     parameters.put("subtractTopographicPhase", False)
-    parameters.put("demName", "SRTM 1Sec HGT")
+    parameters.put("demName", SRTM1SEC)
     parameters.put("externalDEMNoDataValue", 0.0)
     parameters.put("externalDEMApplyEGM", True)
     parameters.put("tileExtensionPercent", "100")
@@ -186,7 +191,7 @@ def get_interferogram_config():
 
 def get_topo_phase_removal_config():
     parameters = HashMap()
-    parameters.put("demName", "SRTM 1Sec HGT")
+    parameters.put("demName", SRTM1SEC)
     parameters.put("orbitDegree", 3)
     parameters.put("externalDEMNoDataValue", 0.0)
     parameters.put("tileExtensionPercent", "100")
@@ -235,5 +240,64 @@ def get_snaphu_import_config():
     return parameters
 
 
-def get_phase_to_displacement_config():
+def get_create_stack_config():
+    parameters = HashMap()
+    parameters.put("resamplingType", "NEAREST_NEIGHBOUR")
+    parameters.put("masterBands", "Sigma0_VH")
+    parameters.put("extent", "Master")
+    parameters.put("initialOffsetMethod", "Orbit")
+    return parameters
+
+
+def get_cross_correlation_config():
+    parameters = HashMap()
+    parameters.put("numGCPtoGenerate", 200)
+    parameters.put("coarseRegistrationWindowWidth", 128)
+    parameters.put("coarseRegistrationWindowHeight", 128)
+    parameters.put("rowInterpFactor", 2)
+    parameters.put("columnInterpFactor", 2)
+    parameters.put("maxIteration", 10)
+    parameters.put("gcpTolerance", 0.5)
+    parameters.put("applyFineRegistration", True)
+    parameters.put("inSAROptimized", True)
+    parameters.put("fineRegistrationWindowWidth", 32)
+    parameters.put("fineRegistrationWindowHeight", 32)
+    parameters.put("fineRegistrationWindowAccAzimuth", 16)
+    parameters.put("fineRegistrationWindowAccRange", 16)
+    parameters.put("fineRegistrationOversampling", 16)
+    parameters.put("coherenceWindowSize", 3)
+    parameters.put("coherenceThreshold", 0.6)
+    parameters.put("useSlidingWindow", False)
+    parameters.put("computeOffset", False)
+    parameters.put("onlyGCPsOnLand", False)
+    return parameters
+
+
+def get_warp_config():
+    parameters = HashMap()
+    parameters.put("rmsThreshold", 0.05)
+    parameters.put("warpPolynomialOrder", 1)
+    parameters.put("interpolationMethod", "Cubic convolution (6 points)")
+    parameters.put("demRefinement", False)
+    parameters.put("demRefinement", False)
+    parameters.put("demName", SRTM1SEC)
+    parameters.put("excludeMaster", False)
+    parameters.put("openResidualsFile", False)
+    return parameters
+
+
+def get_empty_config():
     return HashMap()
+
+
+def get_band_math_configs(db_threshold=-15):
+    parameters = HashMap()
+    band_descriptor = jpy.get_type('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor')
+    target_band = band_descriptor()
+    target_band.name = 'Sigma0_VV_db'
+    target_band.type = 'float32'
+    target_band.expression = 'if Sigma0_VV_db < ' + str(db_threshold) + ' then 0 else 1'
+    target_bands = jpy.array('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor', 1)
+    target_bands[0] = target_band
+    parameters.put('targetBands', target_bands)
+    return parameters

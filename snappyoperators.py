@@ -53,3 +53,38 @@ def terrain_correction(src, projection, pixel_spacing):
     terrain_corrected_prdt = GPF.createProduct("Terrain-Correction", parameters, src)
     print("Terrain correction done")
     return terrain_corrected_prdt
+
+
+def create_stack(src: list):
+    parameters = snappyconfigs.get_speckle_filter_config()
+    stack_prdt = GPF.createProduct("CreateStack", parameters, src)
+    print("Create stack done")
+    return stack_prdt
+
+
+def cross_correlation(src):
+    parameters = snappyconfigs.get_cross_correlation_config()
+    cross_corr_prdt = GPF.createProduct("Cross-Correlation", parameters, src)
+    print("Cross correlation done")
+    return cross_corr_prdt
+
+
+def warp(src):
+    parameters = snappyconfigs.get_warp_config()
+    warp_prdt = GPF.createProduct("Warp", parameters, src)
+    print("Warp done")
+    return warp_prdt
+
+
+def linear_from_to_db(src):
+    parameters = snappyconfigs.get_empty_config()
+    db_prdt = GPF.createProduct("LinearToFromdB", parameters, src)
+    print("Linear To From dB done")
+    return db_prdt
+
+
+def band_math(src):
+    parameters = snappyconfigs.get_band_math_configs()
+    msk_prdt = GPF.createProduct("BandMaths", parameters, src)
+    print("BandMaths done")
+    return msk_prdt
