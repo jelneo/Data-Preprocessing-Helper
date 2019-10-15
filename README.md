@@ -25,3 +25,14 @@ A repo that contains helper methods to make data preprocessing easier for machin
 ### Functions for data visualization
 1. Line plot for raw data / features (with and without data points)
 2. Line plot for histogram
+
+# sar_machine_learning
+This directory contains code for 2 main components:
+1. Data conversion (GeoTIFF to raster) before data is fed into ML models
+2. Tuning and training of ML models
+
+## Dependencies
+For component 1: [rasterio](https://rasterio.readthedocs.io/en/stable/)
+
+For component 2: mainly scikit-learn, numpy, pandas, scipy, joblib
+git sta
