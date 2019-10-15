@@ -7,7 +7,7 @@ from snappy import ProductIO
 from snappy import GPF
 
 import filemanager
-import snappyoperators as sp
+from snappy_tools import snappyoperators as sp
 
 polarizations = "VV"
 

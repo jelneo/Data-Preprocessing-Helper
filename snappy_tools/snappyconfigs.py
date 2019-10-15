@@ -18,13 +18,7 @@ UTM_WGS84 = "GEOGCS[\"WGS84(DD)\",DATUM[\"WGS84\",SPHEROID[\"WGS84\", 6378137.0,
             "AXIS[\"Geodetic latitude\", NORTH]] "
 
 """
-This file contains parameter hash maps for snappy"s preprocessing operators:
-1. thermal noise removal
-2. apply-orbit file
-3. calibration
-4. subset
-5. speckle filter
-6. terrain correction
+This file contains parameter hash maps for snappy"s preprocessing operators
 """
 
 
@@ -102,28 +96,6 @@ def get_terrain_correction_config(map_projection, pixel_spacing_in_meter: float)
     return parameters
 
 
-def get_glcm_config():
-    parameters = HashMap()
-    parameters.put("sourceBands", "Sigma0_VH, Sigma0_VV")
-    parameters.put("windowSizeStr", "11x11")
-    parameters.put("angleStr", "ALL")
-    parameters.put("quantizerStr", "Probabilistic Quantizer")
-    parameters.put("quantizationLevelsStr", "32")
-    parameters.put("displacement", 4)
-    parameters.put("outputContrast", True)
-    parameters.put("outputDissimilarity", False)
-    parameters.put("outputHomogeneity", False)
-    parameters.put("outputASM", False)
-    parameters.put("outputEnergy", False)
-    parameters.put("outputMAX", False)
-    parameters.put("outputEntropy", False)
-    parameters.put("outputMean", True)
-    parameters.put("outputVariance", True)
-    parameters.put("outputCorrelation", False)
-    return parameters
-
-
-########## Preprocessing steps for IW SLC products ##########
 def get_topsar_deburst_config(polarizations):
     parameters = HashMap()
     parameters.put("selectedPolarisations", polarizations)
@@ -290,7 +262,7 @@ def get_empty_config():
     return HashMap()
 
 
-def get_band_math_configs(db_threshold=-15):
+def get_band_math_config(db_threshold=-15):
     parameters = HashMap()
     band_descriptor = jpy.get_type('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor')
     target_band = band_descriptor()
@@ -300,4 +272,33 @@ def get_band_math_configs(db_threshold=-15):
     target_bands = jpy.array('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor', 1)
     target_bands[0] = target_band
     parameters.put('targetBands', target_bands)
+    return parameters
+
+
+def get_convert_datatype_config():
+    parameters = HashMap()
+    parameters.put("targetDataType", "float32")
+    parameters.put("targetScalingStr", "Logarithmic")
+    parameters.put("targetNoDataValue", "NaN")
+    return parameters
+
+
+def get_glcm_config():
+    parameters = HashMap()
+    parameters.put("windowSizeStr", "11x11")
+    parameters.put("angleStr", "ALL")
+    parameters.put("quantizerStr", "Probabilistic Quantizer")
+    parameters.put("quantizationLevelsStr", "32")
+    parameters.put("displacement", 4)
+    # features of GLCM
+    parameters.put("outputContrast", True)
+    parameters.put("outputDissimilarity", False)
+    parameters.put("outputHomogeneity", False)
+    parameters.put("outputASM", False)
+    parameters.put("outputEnergy", False)
+    parameters.put("outputMAX", False)
+    parameters.put("outputEntropy", False)
+    parameters.put("outputMean", True)
+    parameters.put("outputVariance", True)
+    parameters.put("outputCorrelation", False)
     return parameters
