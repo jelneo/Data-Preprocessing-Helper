@@ -3,9 +3,13 @@ import re
 
 from PIL import Image, ImageDraw
 import rasterio
+import numpy as np
+import logging
+import matplotlib.pyplot as plt
 
 BLACK = 0
 WHITE = 255
+DAM_COLOR = 100
 
 parent_dir = "E:\\GRD\\"
 input_dir = parent_dir + "Original\\"
@@ -20,43 +24,99 @@ for binary images, 0 (white) is water 1 (black) is land
 for mask, 255 is land (white) and 0 is water (black)
 """
 
-
-def draw_area_larger_than(area_threshold, i, j, iterations, image):
-    curr_area = 0
-    for x in range(i, min(i + iterations, height)):
-        for y in range(j, min(j + iterations, width)):
-            if image[x][y] == 0:
-                curr_area += 1
-    # print("area is {}".format(curr_area))
-    if curr_area > area_threshold:
-        for x in range(i, min(i + iterations, height)):
-            for y in range(j, min(j + iterations, width)):
-                if image[x][y] == 0:
-                    ImageDraw.Draw(msk).point((y, x), fill=BLACK)
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(name)s: %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
+logger = logging.getLogger(__name__)
 
 
-sample_spacing = 8
-area_threshold = 22
+# def draw_area_larger_than(area_threshold, i, j, iterations, image):
+#     curr_area = 0
+#     for p_x in range(i, min(i + iterations, height)):
+#         for p_y in range(j, min(j + iterations, width)):
+#             if image[p_x][p_y] == 0:
+#                 curr_area += 1
+#     # print("area is {}".format(curr_area))
+#     if curr_area > area_threshold:
+#         for p_x in range(i, min(i + iterations, height)):
+#             for p_y in range(j, min(j + iterations, width)):
+#                 if image[p_x][p_y] == 0:
+#                     ImageDraw.Draw(msk).point((p_y, p_x), fill=BLACK)
+#
+#
+# sample_spacing = 20
+# area_threshold = 0.15 * sample_spacing * sample_spacing
 # creates an img with land-water masks
-for folder in os.listdir(output_dir):
-    if folder.endswith(".tif"):
-        img = rasterio.open(output_dir + folder)
-        # print(img.indexes)
-        # print(img.descriptions)
-        # print(img.width)
-        # print(img.height)
-        # size = img.size
+# for folder in os.listdir(parent_dir):
+#     if folder.endswith(".tif") and 'land_water_mask' in folder:
+#         img = rasterio.open(parent_dir + folder)
+#         # print(img.indexes)
+#         # print(img.descriptions)
+#         # print(img.width)
+#         # print(img.height)
+#         # size = img.size
+#         width = img.width
+#         height = img.height
+#         binary_img = img.read(1)
+#         msk = Image.new('L', (width, height), WHITE)
+#
+#         for x in range(0, height, sample_spacing):
+#             for y in range(0, width, sample_spacing):
+#                 draw_area_larger_than(area_threshold, x, y, sample_spacing, binary_img)
+#                 # for spacing 10: 38 - ok, 40 - reasonable, 42 - a little boxy around the edges
+#                 # for spacing 9: 35 - pretty good, 38 boxy around the edges, 30, 32 - scruffy edges along the st line
+#                 # for spacing 8: 22 - best
+#         msk.show()
+#         # file_name = re.sub("\\..*$", "", folder)
+#         # msk.save(mask_dir + file_name[:-7] + '.tif')
+
+
+def is_area_larger_than(image, i, j, iterations, thres):
+    curr_area = 0
+    for p_x in range(i, min(i + iterations, height)):
+        for p_y in range(j, min(j + iterations, width)):
+            if image[p_x][p_y] == 0:
+                curr_area += 1
+    # logger.info("area is {}".format(curr_area))
+    if curr_area > thres:
+        return True
+    return False
+
+
+sample_spacing = 20
+area_threshold = 0.5 * sample_spacing * sample_spacing
+for folder in os.listdir(parent_dir):
+    if folder.endswith(".tif") and 'land_water_mask' in folder:
+        logger.info("opened")
+        img = rasterio.open(parent_dir + folder)
+        msk = Image.open(parent_dir + folder)
         width = img.width
         height = img.height
         binary_img = img.read(1)
-        msk = Image.new('L', (width, height), WHITE)
-
+        logger.info(binary_img.shape)
+        print(binary_img[162][41])#0
+        print(binary_img[41][162])
+        done = False
+        # To reduce unnecessary checking, we starting search for the dam at an arbitrary point
         for x in range(0, height, sample_spacing):
             for y in range(0, width, sample_spacing):
-                draw_area_larger_than(22, x, y, sample_spacing, binary_img)
-                # for spacing 10: 38 - ok, 40 - reasonable, 42 - a little boxy around the edges
-                # for spacing 9: 35 - pretty good, 38 boxy around the edges, 30, 32 - scruffy edges along the st line
-                # for spacing 8: 22 - best
-        # msk.show()
+                if binary_img[x][y] == BLACK:
+                    if is_area_larger_than(binary_img, x, y, sample_spacing, area_threshold):
+                        logger.info("Found the dam!")
+                        ImageDraw.floodfill(msk, (y, x), DAM_COLOR)
+                        done = True
+                        break
+            if done:
+                break
+        msk.show()
+        msk_arr = np.array(msk)
+        msk_arr[msk_arr == BLACK] = WHITE
+        msk_arr[msk_arr == DAM_COLOR] = BLACK
+        msk = Image.fromarray(msk_arr)
+        msk.show()
+        # plt.imshow(p_img_arr)
+        # plt.show()
         file_name = re.sub("\\..*$", "", folder)
         msk.save(mask_dir + file_name[:-7] + '.tif')
+logger.info("Completed")
