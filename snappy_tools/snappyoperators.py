@@ -14,6 +14,13 @@ def top_sar_split(src, subswath, first_idx, last_idx, polarizations):
     return split_prdt
 
 
+def top_sar_deburst(src, polarizations):
+    parameters = parameters = snappyconfigs.get_topsar_deburst_config(polarizations)
+    deburst_prdt = GPF.createProduct("TOPSAR-Deburst", parameters, src)
+    logger.info("TOPSAR Deburst done")
+    return deburst_prdt
+
+
 def apply_orbit_file(src):
     parameters = snappyconfigs.get_orbit_config()
     apply_orbit_prdt = GPF.createProduct("Apply-Orbit-File", parameters, src)
@@ -110,3 +117,59 @@ def band_merge(src):
     band_merge_prdt = GPF.createProduct("BandMerge", parameters, src)
     logger.info("BandMerge done")
     return band_merge_prdt
+
+
+def back_geocoding(src):
+    parameters = snappyconfigs.get_back_geocoding_config()
+    back_geocoded_prdt = GPF.createProduct("Back-Geocoding", parameters, src)
+    logger.info("Back-Geocoding done")
+    return back_geocoded_prdt
+
+
+def enhanced_spectral_diversity(src):
+    parameters = snappyconfigs.get_esd_config()
+    esd_prdt = GPF.createProduct("Enhanced-Spectral-Diversity", parameters, src)
+    logger.info("Enhanced spectral diversity done")
+    return esd_prdt
+
+
+def interferogram(src):
+    parameters = snappyconfigs.get_interferogram_config()
+    interferogram_prdt = GPF.createProduct("Interferogram", parameters, src)
+    logger.info("Interferogram done")
+    return interferogram_prdt
+
+
+def topo_phase_removal(src):
+    parameters = snappyconfigs.get_topo_phase_removal_config()
+    tpr_prdt = GPF.createProduct("TopoPhaseRemoval", parameters, burst_file)
+    logger.info("TopoPhaseRemoval done")
+    return tpr_prdt
+
+
+def multilook(src):
+    parameters = snappyconfigs.get_multilook_config()
+    multilook_prdt = GPF.createProduct("Multilook", parameters, src)
+    logger.info("Multilook done")
+    return multilook_prdt
+
+
+def goldstein_phase_filtering(src):
+    parameters = snappyconfigs.get_goldstein_phase_filtering_config()
+    goldstein_prdt = GPF.createProduct("GoldsteinPhaseFiltering", parameters, src)
+    logger.info("Goldstein phase filtering done")
+    return goldstein_prdt
+
+
+def snaphu_import(src):
+    parameters = snappyconfigs.get_snaphu_import_config()
+    snaphu_import_prdt = GPF.createProduct("SnaphuImport", parameters, src)
+    logger.info("SnaphuImport done")
+    return snaphu_import_prdt
+
+
+def phase_to_disp(src):
+    parameters = snappyconfigs.get_empty_config()
+    ptd_prdt = GPF.createProduct("PhaseToDisplacement", parameters, src)
+    logger.info("Phase to displacement done")
+    return ptd_prdt
