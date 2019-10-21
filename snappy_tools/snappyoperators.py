@@ -3,10 +3,13 @@ from snappy import GPF
 
 from snappy_tools import snappyconfigs
 
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(name)s: %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
 
 
-# Extract all operator funcs here for easy reuse. do it for ogp!
 def top_sar_split(src, subswath, first_idx, last_idx, polarizations):
     parameters = snappyconfigs.get_topsar_split_config(subswath, first_idx, last_idx, polarizations)
     split_prdt = GPF.createProduct("TOPSAR-Split", parameters, src)
@@ -15,7 +18,7 @@ def top_sar_split(src, subswath, first_idx, last_idx, polarizations):
 
 
 def top_sar_deburst(src, polarizations):
-    parameters = parameters = snappyconfigs.get_topsar_deburst_config(polarizations)
+    parameters = snappyconfigs.get_topsar_deburst_config(polarizations)
     deburst_prdt = GPF.createProduct("TOPSAR-Deburst", parameters, src)
     logger.info("TOPSAR Deburst done")
     return deburst_prdt
@@ -142,7 +145,7 @@ def interferogram(src):
 
 def topo_phase_removal(src):
     parameters = snappyconfigs.get_topo_phase_removal_config()
-    tpr_prdt = GPF.createProduct("TopoPhaseRemoval", parameters, burst_file)
+    tpr_prdt = GPF.createProduct("TopoPhaseRemoval", parameters, src)
     logger.info("TopoPhaseRemoval done")
     return tpr_prdt
 
@@ -166,6 +169,13 @@ def snaphu_import(src):
     snaphu_import_prdt = GPF.createProduct("SnaphuImport", parameters, src)
     logger.info("SnaphuImport done")
     return snaphu_import_prdt
+
+
+def snaphu_export(src, snaphu_export_path):
+    parameters = snappyconfigs.get_snaphu_export_config(snaphu_export_path)
+    snaphu_export_prdt = GPF.createProduct("SnaphuExport", parameters, src)
+    logger.info("SnaphuExport done")
+    return snaphu_export_prdt
 
 
 def phase_to_disp(src):
