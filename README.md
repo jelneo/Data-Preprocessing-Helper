@@ -10,5 +10,4 @@ This directory contains code for 2 main components:
 ## Dependencies
 For component 1: [rasterio](https://rasterio.readthedocs.io/en/stable/)
 
-For component 2: mainly scikit-learn, numpy, pandas, scipy, joblib
-git sta
+For component 2: mainly scikit-learn, numpy, pandas, skimage, pillow, pyproj
