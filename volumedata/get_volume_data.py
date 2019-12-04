@@ -3,7 +3,7 @@ import requests
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from pandas.plotting import register_matplotlib_converters
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 
 # api_url_base = "http://www.thaiwater.net/DATA/REPORT/php/generate_rid_data.php?dam=17&n=2019&xyear=2019"
 api_url_base = "http://www.thaiwater.net/DATA/REPORT/php/generate_rid_data.php?"
@@ -33,6 +33,28 @@ def convert_unix_to_datetime(time_list):
     return [datetime.utcfromtimestamp(t // 1000).replace(tzinfo=timezone.utc).astimezone(tz=None) for t in time_list]
 
 
+def get_volume_for(selected_date: date, dam=17):
+    vol_data = get_volume_data(dam)
+    year = selected_date.year
+    data_yr = vol_data[str(year)]
+    time = data_yr['time']
+    converted_time = convert_unix_to_datetime(time)
+    vals = data_yr['values']
+    for i in range(len(converted_time)):
+        if converted_time[i].month == selected_date.month and converted_time[i].day == selected_date.day:
+            # print(converted_time[i])
+            return vals[i]
+
+
+def get_change_in_water_level(before_date, after_date):
+    before = get_volume_for(before_date)
+    # print(f'{before_date}: {before} million cubic metres')
+    after = get_volume_for(after_date)
+    # print(f'{after_date}: {after} million cubic metres')
+    # print(f'Volume change: {before - after} million cubic metres')
+    return after - before
+
+
 def plot_volume_data(data_series, title, x_label, y_label):
     time = data_series['time']
     converted_time = convert_unix_to_datetime(time)
@@ -55,4 +77,11 @@ def plot_volume_data(data_series, title, x_label, y_label):
 if __name__ == "__main__":
     data = get_volume_data(17)
     print(data)
-    plot_volume_data(data['2019'], "Dam Volume for Lam Chae Dam", x_label="Time", y_label="Volume (million cubic metres)")
+    # plot_volume_data(data['2019'], "Dam Volume for Lam Chae Dam", x_label="Time", y_label="Volume (million cubic metres)")
+    before_date = date(2019, 1, 1)
+    after_date = date(2019, 1, 7)
+    before = get_volume_for(before_date)
+    print(f'{before_date}: {before} million cubic metres')
+    after = get_volume_for(after_date)
+    print(f'{after_date}: {after} million cubic metres')
+    print(f'Volume change: {before - after} million cubic metres')
