@@ -13,6 +13,7 @@ UTM_WGS84_AUTO = "PROJCS[\"UTM Zone 45 / World Geodetic System 1984\",GEOGCS[\"W
                  "PARAMETER[\"scale_factor\", 0.9996],PARAMETER[\"false_easting\", 500000.0],PARAMETER[\"false_northing\", 0.0]," \
                  "UNIT[\"m\", 1.0],AXIS[\"Easting\", EAST],AXIS[\"Northing\", NORTH]]"
 
+EPSG_32645 = 'EPSG:32645'
 UTM_WGS84 = "GEOGCS[\"WGS84(DD)\",DATUM[\"WGS84\",SPHEROID[\"WGS84\", 6378137.0, 298.257223563]]," \
             "PRIMEM[\"Greenwich\", 0.0],UNIT[\"degree\", 0.017453292519943295],AXIS[\"Geodetic longitude\", EAST]," \
             "AXIS[\"Geodetic latitude\", NORTH]] "
@@ -148,8 +149,8 @@ def get_interferogram_config():
     parameters.put("srpNumberPoints", 501)
     parameters.put("orbitDegree", 3)
     parameters.put("includeCoherence", True)
-    parameters.put("cohWinAz", 5)
-    parameters.put("cohWinRg", 20)
+    parameters.put("cohWinAz", 10)
+    parameters.put("cohWinRg", 2)
     parameters.put("squarePixel", True)
     parameters.put("subtractTopographicPhase", False)
     parameters.put("demName", SRTM1SEC)
@@ -175,7 +176,7 @@ def get_topo_phase_removal_config():
 
 def get_multilook_config():
     parameters = HashMap()
-    parameters.put("nRgLooks", 8)
+    parameters.put("nRgLooks", 6)
     parameters.put("nAzLooks", 2)
     parameters.put("outputIntensity", False)
     parameters.put("grSquarePixel", True)
@@ -188,7 +189,7 @@ def get_goldstein_phase_filtering_config():
     parameters.put("FFTSizeString", "128")
     parameters.put("windowSizeString", "3")
     parameters.put("useCoherenceMask", False)
-    parameters.put("coherenceThreshold", 0.2)
+    parameters.put("coherenceThreshold", 0.3)
     return parameters
 
 
@@ -214,7 +215,7 @@ def get_snaphu_import_config():
 
 def get_create_stack_config():
     parameters = HashMap()
-    parameters.put("resamplingType", "NEAREST_NEIGHBOUR")
+    parameters.put("resamplingType", "NONE")
     parameters.put("masterBands", "Sigma0_VH")
     parameters.put("extent", "Master")
     parameters.put("initialOffsetMethod", "Orbit")
@@ -223,13 +224,13 @@ def get_create_stack_config():
 
 def get_cross_correlation_config():
     parameters = HashMap()
-    parameters.put("numGCPtoGenerate", 200)
+    parameters.put("numGCPtoGenerate", 2000)
     parameters.put("coarseRegistrationWindowWidth", 128)
     parameters.put("coarseRegistrationWindowHeight", 128)
-    parameters.put("rowInterpFactor", 2)
-    parameters.put("columnInterpFactor", 2)
+    parameters.put("rowInterpFactor", 4)
+    parameters.put("columnInterpFactor", 4)
     parameters.put("maxIteration", 10)
-    parameters.put("gcpTolerance", 0.5)
+    parameters.put("gcpTolerance", 0.25)
     parameters.put("applyFineRegistration", True)
     parameters.put("inSAROptimized", True)
     parameters.put("fineRegistrationWindowWidth", 32)
@@ -262,13 +263,13 @@ def get_empty_config():
     return HashMap()
 
 
-def get_band_math_config(db_threshold=-15):
+def get_band_math_config(band_name, expression):
     parameters = HashMap()
     band_descriptor = jpy.get_type('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor')
     target_band = band_descriptor()
-    target_band.name = 'Sigma0_VV_db'
+    target_band.name = band_name
     target_band.type = 'float32'
-    target_band.expression = 'if Sigma0_VV_db < ' + str(db_threshold) + ' then 0 else 1'
+    target_band.expression = expression
     target_bands = jpy.array('org.esa.snap.core.gpf.common.BandMathsOp$BandDescriptor', 1)
     target_bands[0] = target_band
     parameters.put('targetBands', target_bands)
@@ -291,7 +292,7 @@ def get_glcm_config():
     parameters.put("quantizationLevelsStr", "32")
     parameters.put("displacement", 4)
     # features of GLCM
-    parameters.put("outputContrast", True)
+    parameters.put("outputContrast", False)
     parameters.put("outputDissimilarity", False)
     parameters.put("outputHomogeneity", False)
     parameters.put("outputASM", False)

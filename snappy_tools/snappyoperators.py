@@ -67,7 +67,7 @@ def terrain_correction(src, projection, pixel_spacing):
 
 
 def create_stack(src: list):
-    parameters = snappyconfigs.get_speckle_filter_config()
+    parameters = snappyconfigs.get_create_stack_config()
     stack_prdt = GPF.createProduct("CreateStack", parameters, src)
     logger.info("Create stack done")
     return stack_prdt
@@ -94,8 +94,8 @@ def linear_from_to_db(src):
     return db_prdt
 
 
-def band_math(src):
-    parameters = snappyconfigs.get_band_math_config()
+def band_math(src, band_name, expression):
+    parameters = snappyconfigs.get_band_math_config(band_name, expression)
     msk_prdt = GPF.createProduct("BandMaths", parameters, src)
     logger.info("BandMaths done")
     return msk_prdt
