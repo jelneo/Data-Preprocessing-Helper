@@ -1,3 +1,24 @@
+"""
+Does the following preprocessing steps for chosen prdt type (IW GRD level 1 prdt):
+read
+apply-orbit file
+thermal noise removal
+calibration
+speckle filter
+terrain correction
+LinearFromTodB
+Convert datatype
+GLCM
+subset
+write
+preprocessing order depends on product type(slc,grd,raw) and product level(0,1,2)
+"""
+
+import logging
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(name)s: %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
 import gc
 import os
 import platform
@@ -8,33 +29,16 @@ import re
 
 import filemanager
 from snappy_tools import snappyconfigs, snappyoperators as sp
-import logging
+from basicconfig import LC_WKT, POLARIZATIONS
+
 
 AOI_WKT = \
 "POLYGON((102.070752316744 14.565580568454624,102.36824148300377 14.565580568454624,102.36824148300377 14.322211910367955,102.070752316744 14.322211910367955,102.070752316744 14.565580568454624))"
-LC_WKT = \
-"POLYGON ((102.20847231731713 14.439781517107432, 102.3060716615449 14.43331056378837, 102.29856976165753 14.3257370026112, 102.2010136577299 14.332157725250479, 102.20847231731713 14.439781517107432))"
 
 MB_WKT = \
 "POLYGON ((102.07791587712885 14.49683683310493, 102.16234336990105 14.49127182118036, 102.1573503766792 14.419364145685869, 102.07294806228553 14.424900383211916, 102.07791587712885 14.49683683310493))"
 
 prdt_names = ["sentinel_1", "subset_prdt", "apply_orbit_prdt", "noise_rem_prdt", "calibrated_prdt", "speckle_prdt", "terrain_corrected_prdt", "db_prdt"]
-
-polarizations = "VV"
-
-"""
-Does the following preprocessing steps for chosen prdt type (IW GRND level 1 prdt):
-read
-subset
-thermal noise removal
-apply-orbit file
-calibration
-terrain correction
-#stack coreg
-write
-# add GLCM???
-preprocessing order depends on product type(slc,grnd,raw) and product level(0,1,2) 
-"""
 
 
 def free_memory():
@@ -43,17 +47,10 @@ def free_memory():
         del g[var]
 
 
-logging.basicConfig(
-    format='%(asctime)s %(levelname)-8s %(message)s',
-    level=logging.INFO,
-    datefmt='%Y-%m-%d %H:%M:%S')
-logger = logging.getLogger(__name__)
-logger.info("Start data preprocessing")
-
 GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
 
 usr_system = platform.system()
-input_dir, output_dir = filemanager.get_file_paths_based_on_os(platform.system())
+input_dir, output_dir = filemanager.get_file_paths_based_on_os(platform.system(), filemanager.Product.grd)
 output_dir = output_dir + "LC\\"
 
 toRun = input("Run program? (Y/N)")
@@ -63,6 +60,8 @@ else:
     print("Exiting...")
     exit(0)
 
+logger = logging.getLogger(__name__)
+logger.info("Start data preprocessing")
 gc.enable()
 # Loop through all Sentinel-1 data sub folders that are located within a super folder
 # (make sure that the data is already unzipped)
@@ -75,6 +74,7 @@ existing_files = [f[:-4] for f in os.listdir(output_dir) if '.tif' in f]
 
 
 count = 6
+
 for folder in os.listdir(input_dir):
 # for folder in os.listdir(output_dir):
 
@@ -82,7 +82,7 @@ for folder in os.listdir(input_dir):
         continue
     # if ".dim" not in folder:
     #     continue
-    if "S1A_IW_GRDH_1SDV_20190107T112034_20190107T112059_025371_02CF15_BACB.SAFE" != folder:
+    if "S1B_IW_GRDH_1SDV_20190101T111959_20190101T112024_014300_01A9AA_8AF3.SAFE" != folder and "S1A_IW_GRDH_1SDV_20190107T112034_20190107T112059_025371_02CF15_BACB.SAFE" != folder:
         continue
 
     input_file_name = input_dir + folder
@@ -123,7 +123,7 @@ for folder in os.listdir(input_dir):
     # ProductIO.writeProduct(noise_rem_prdt, noise_removal_path, "BEAM-DIMAP")
 
     ### CALIBRATION
-    calibrated_prdt = sp.calibration(apply_orbit_prdt, polarizations)
+    calibrated_prdt = sp.calibration(apply_orbit_prdt, POLARIZATIONS)
     # calib_path = output_dir + file_name + "_" + "calibrate"
     # ProductIO.writeProduct(calibrated_prdt, calib_path, "BEAM-DIMAP")
 
@@ -133,7 +133,7 @@ for folder in os.listdir(input_dir):
     # ProductIO.writeProduct(speckle_prdt, speckle_path, "BEAM-DIMAP")
 
     ### TERRAIN CORRECTION
-    terrain_corrected_prdt = sp.terrain_correction(calibrated_prdt, snappyconfigs.UTM_WGS84, 10.0)
+    terrain_corrected_prdt = sp.terrain_correction(calibrated_prdt, snappyconfigs.UTM_WGS84, 5.0)
     # terrain = output_dir + file_name + "_" + "corrected"
     # ProductIO.writeProduct(terrain_corrected_prdt, terrain, "GeoTIFF")
     # ProductIO.writeProduct(terrain_corrected_prdt, terrain + "_big", "GeoTIFF-BigTIFF")
@@ -154,13 +154,13 @@ for folder in os.listdir(input_dir):
     ### GLCM
     glcm_prdt = sp.glcm(cnv_prdt)
 
-    ### Band merge
+    # ### Band merge
     merged_prdt = sp.band_merge([cnv_prdt, glcm_prdt])
 
-    processed_path = output_dir + file_name + "_" + "glcm"
+    processed_path = output_dir + file_name + f'_glcm_{POLARIZATIONS}'
     ProductIO.writeProduct(merged_prdt, processed_path, "BEAM-DIMAP")
 
-    # Due to heap memory constraints, can only process 6 products at a time. Otherwise there will be corrupted images
+    # Due to heap memory constraints, can only process 6 products at a time. Otherwise it will lead to corrupted images
     count -= 1
     if count == 0:
         break
