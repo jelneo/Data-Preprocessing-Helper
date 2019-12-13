@@ -29,7 +29,7 @@ import re
 
 import filemanager
 from snappy_tools import snappyconfigs, snappyoperators as sp
-from basicconfig import LC_WKT, POLARIZATIONS
+from basicconfig import LC_WKT, POLARIZATIONS, LC_PATH
 
 
 AOI_WKT = \
@@ -51,7 +51,7 @@ GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
 
 usr_system = platform.system()
 input_dir, output_dir = filemanager.get_file_paths_based_on_os(platform.system(), filemanager.Product.grd)
-output_dir = output_dir + "LC\\"
+output_dir = output_dir + LC_PATH
 
 toRun = input("Run program? (Y/N)")
 if toRun == "Y" or toRun == "y":

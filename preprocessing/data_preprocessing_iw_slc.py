@@ -55,7 +55,8 @@ from snappy import GPF
 from snappy import ProductIO
 
 from snappy_tools import snappyconfigs, snappyoperators as sp
-from basicconfig import LC_WKT, POLARIZATIONS
+from basicconfig import LC_WKT, POLARIZATIONS, SNAPHU_PATH
+import filemanager
 
 AOI_WKT = \
     "POLYGON((102.070752316744 14.565580568454624,102.36824148300377 14.565580568454624,102.36824148300377 14.322211910367955,102.070752316744 14.322211910367955,102.070752316744 14.565580568454624))"
@@ -64,25 +65,7 @@ AOI_WKT = \
 GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
 
 usr_system = platform.system()
-if usr_system == "Windows":
-    parent_dir = "D:\\FYP_IW\\"
-    input_dir = parent_dir + "Original\\"
-    output_dir = parent_dir + "Processing\\"
-    # input_dir = parent_dir + "Test\\"
-    # output_dir = parent_dir + "TestProc\\"
-    manifest_extension = "\\manifest.safe"
-    snaphu_dir = output_dir + "Snaphu\\"
-elif usr_system == "Linux":
-    # For hpc
-    parent_dir = "/hpctmp2/a0158174/"
-    input_dir = parent_dir + "Original/"
-    output_dir = input_dir + "Processing/"
-    manifest_extension = "/manifest.safe"
-    snaphu_dir = output_dir + "Snaphu/"
-else:
-    logger.critical("No directory set.\nProgram exiting...")
-    exit(1)
-
+input_dir, output_dir = filemanager.get_file_paths_based_on_os(platform.system(), filemanager.Product.slc)
 
 toRun = input("Run program? (Y/N)")
 if toRun == "Y" or toRun == "y":
@@ -188,7 +171,7 @@ logger.info('Write done')
 ####################### PHASE UNWRAPPING ########################
 ### SNAPHU EXPORT
 in_goldstein_prdt = ProductIO.readProduct(goldstein_path + '.dim')
-snaphu_output_path = snaphu_dir + combined_name + f'_{POLARIZATIONS}' + '\\'
+snaphu_output_path = SNAPHU_PATH + combined_name + f'_{POLARIZATIONS}' + '\\'
 snaphu_export_prdt = sp.snaphu_export(in_goldstein_prdt, snaphu_output_path)
 ProductIO.writeProduct(snaphu_export_prdt, snaphu_output_path, "Snaphu")
 logger.info("Snaphu Export write done")
