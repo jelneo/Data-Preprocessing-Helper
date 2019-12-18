@@ -29,7 +29,7 @@ import re
 
 import filemanager
 from snappy_tools import snappyconfigs, snappyoperators as sp
-from basicconfig import LC_WKT, POLARIZATIONS, LC_PATH
+from basicconfig import LC_WKT, POLARIZATIONS, LC_PATH, COMMON_DIR
 
 
 AOI_WKT = \
@@ -38,19 +38,12 @@ AOI_WKT = \
 MB_WKT = \
 "POLYGON ((102.07791587712885 14.49683683310493, 102.16234336990105 14.49127182118036, 102.1573503766792 14.419364145685869, 102.07294806228553 14.424900383211916, 102.07791587712885 14.49683683310493))"
 
-prdt_names = ["sentinel_1", "subset_prdt", "apply_orbit_prdt", "noise_rem_prdt", "calibrated_prdt", "speckle_prdt", "terrain_corrected_prdt", "db_prdt"]
-
-
-def free_memory():
-    g = globals()
-    for var in prdt_names:
-        del g[var]
-
 
 GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
 
 usr_system = platform.system()
 input_dir, output_dir = filemanager.get_file_paths_based_on_os(platform.system(), filemanager.Product.grd)
+input_dir = input_dir + COMMON_DIR
 output_dir = output_dir + LC_PATH
 
 toRun = input("Run program? (Y/N)")
@@ -66,7 +59,7 @@ gc.enable()
 # Loop through all Sentinel-1 data sub folders that are located within a super folder
 # (make sure that the data is already unzipped)
 
-existing_files = [f[:-4] for f in os.listdir(output_dir) if '.tif' in f]
+existing_files = [f[:-7] for f in os.listdir(output_dir) if '.dim' in f]
 
 # # For blank images
 # existing_files = [line.rstrip('\n') for line in open(output_dir + "outliers.txt")]
@@ -76,23 +69,20 @@ existing_files = [f[:-4] for f in os.listdir(output_dir) if '.tif' in f]
 count = 6
 
 for folder in os.listdir(input_dir):
-# for folder in os.listdir(output_dir):
 
     if ".SAFE" not in folder:
         continue
-    # if ".dim" not in folder:
+
+    # if "S1B_IW_GRDH_1SDV_20190101T111959_20190101T112024_014300_01A9AA_8AF3.SAFE" != folder and "S1A_IW_GRDH_1SDV_20190107T112034_20190107T112059_025371_02CF15_BACB.SAFE" != folder:
     #     continue
-    if "S1B_IW_GRDH_1SDV_20190101T111959_20190101T112024_014300_01A9AA_8AF3.SAFE" != folder and "S1A_IW_GRDH_1SDV_20190107T112034_20190107T112059_025371_02CF15_BACB.SAFE" != folder:
-        continue
 
     input_file_name = input_dir + folder
-    # input_file_name = output_dir + folder
     file_name = re.sub("\\..*$", "", folder)
     timestamp = folder.split("_")[4]
     date = timestamp[:8]
 
-    # if any(file_name in ef for ef in existing_files):
-    #     continue
+    if any(file_name in ef for ef in existing_files):
+        continue
 
     # # for blank images
     # if not any(ef in file_name for ef in existing_files):
@@ -159,12 +149,12 @@ for folder in os.listdir(input_dir):
 
     processed_path = output_dir + file_name + f'_glcm_{POLARIZATIONS}'
     ProductIO.writeProduct(merged_prdt, processed_path, "BEAM-DIMAP")
+    logger.info("Write done")
 
     # Due to heap memory constraints, can only process 6 products at a time. Otherwise it will lead to corrupted images
     count -= 1
     if count == 0:
         break
-    free_memory()
     gc.collect()
 
 
