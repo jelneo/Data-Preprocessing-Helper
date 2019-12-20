@@ -21,6 +21,7 @@ POLARIZATIONS = "VV"
 # Image analysis
 BLACK = 0
 WHITE = 255
+DAM_COLOR = 100
 
 LAND = 0
 WATER = 1

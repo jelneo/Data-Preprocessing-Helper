@@ -17,22 +17,14 @@ from scipy import ndimage
 import matplotlib.pyplot as plt
 from rasterio.features import shapes
 from shapely.geometry import shape
-
-BLACK = 0
-WHITE = 255
-DAM_COLOR = 100
-
-parent_dir = "E:\\GRD\\"
-input_dir = parent_dir + "Original\\"
-processing_dir = parent_dir + "Processing\\"
-mask_dir = parent_dir + "Mask\\"
-# input_dir = parent_dir + "Test\\"
-# output_dir = parent_dir + "TestProc\\"
-classified_LC_dir = processing_dir + "LC_classification\\"
+import filemanager
+import platform
+from basicconfig import BLACK, WHITE, DAM_COLOR, GRD_MASK_DIR, LC_CLASSIFIED_DIR, POLARIZATIONS
 
 
-polarizations = 'VH'
-
+input_dir, output_dir = filemanager.get_file_paths_based_on_os(platform.system(), filemanager.Product.grd)
+mask_dir = output_dir + GRD_MASK_DIR
+classified_LC_dir = output_dir + LC_CLASSIFIED_DIR
 """ 
 Some notes:
 for binary images, 0 (white) is water 1 (black) is land
@@ -46,7 +38,6 @@ def draw_area_larger_than(area_threshold, i, j, iterations, image):
         for p_y in range(j, min(j + iterations, width)):
             if image[p_x][p_y] == 0:
                 curr_area += 1
-    # print("area is {}".format(curr_area))
     if curr_area > area_threshold:
         for p_x in range(i, min(i + iterations, height)):
             for p_y in range(j, min(j + iterations, width)):
@@ -66,15 +57,14 @@ def is_area_larger_than(image, i, j, iterations, thres):
     return False
 
 
-sample_spacing = 30
-area_threshold = 0.95 * sample_spacing * sample_spacing
+sample_spacing = 70
+area_threshold = 0.96 * sample_spacing * sample_spacing
 mask_json = {}
 loop_dir = classified_LC_dir
 for folder in os.listdir(loop_dir):
     if folder.endswith(".tif") and f'land_water_mask_rf' in folder:
         logger.info(folder)
         img = rasterio.open(loop_dir + folder)
-        print(img.crs)
         msk = Image.open(loop_dir + folder)
         width = img.width
         height = img.height
@@ -85,10 +75,10 @@ for folder in os.listdir(loop_dir):
         # print(binary_img[41][162])
         done = False
         # To reduce unnecessary checking, we starting search for the reservoir at an arbitrary point
-        for x in range(0, height, sample_spacing):
-            for y in range(0, width, sample_spacing):
+        for x in range(0, height, sample_spacing // 2):
+            for y in range(0, width, sample_spacing // 2):
                 if binary_img[x][y] == BLACK:
-                    if is_area_larger_than(binary_img, x, y, sample_spacing, area_threshold):
+                    if is_area_larger_than(binary_img, x, y, sample_spacing, area_threshold) and is_area_larger_than(binary_img, x + sample_spacing // 2, y, sample_spacing, area_threshold):
                         logger.info("Found the reservoir!")
                         ImageDraw.floodfill(msk, (y, x), DAM_COLOR)
                         done = True
@@ -98,19 +88,9 @@ for folder in os.listdir(loop_dir):
         if not done:
             logger.critical("No reservoir was found.")
             sys.exit("No reservoir was found.")
-        # msk.show()
         msk_arr = np.array(msk).astype(np.uint8)
         msk_arr[msk_arr == WHITE] = BLACK
-        # print(msk_arr.max())
-        # print(msk_arr.min())
-        # msk_arr[msk_arr == DAM_COLOR] = BLACK
-
-        # plt.imshow(p_img_arr)
-        # plt.show()
-
         msk_arr = ndimage.binary_fill_holes(msk_arr).astype(np.uint8)
-        # print(msk_arr.max())
-        # print(msk_arr.min())
         msk_arr[msk_arr == 1] = DAM_COLOR
         # msk = Image.fromarray(msk_arr)
         # msk.show()
@@ -130,7 +110,6 @@ for folder in os.listdir(loop_dir):
             transform=img.transform,
         ) as dst:
             dst.write(msk_arr, 1)
-        # msk.save(mask_dir + file_name[:-7] + '.tif')
 
         mask = None
         with rasterio.open(mask_prdt_path, 'r') as src:
@@ -143,7 +122,11 @@ for folder in os.listdir(loop_dir):
         mask_json[file_name] = str(shp)
 with open(mask_dir + 'data.json', 'w', encoding='utf-8') as f:
     json.dump(mask_json, f, ensure_ascii=False, indent=4)
-        # a, b = shp.exterior.xy
-        # plt.plot(a, b)
-        # plt.show()
 logger.info("Completed")
+
+if platform.system() == "Windows":
+    import winsound
+    duration = 1000  # milliseconds
+    freq = 1000  # Hz
+    winsound.Beep(freq, duration)
+    winsound.Beep(freq, duration)
