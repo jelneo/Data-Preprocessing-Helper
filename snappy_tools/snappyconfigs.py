@@ -150,7 +150,7 @@ def get_interferogram_config():
     parameters.put("orbitDegree", 3)
     parameters.put("includeCoherence", True)
     parameters.put("cohWinAz", 10)
-    parameters.put("cohWinRg", 2)
+    parameters.put("cohWinRg", 10)
     parameters.put("squarePixel", True)
     parameters.put("subtractTopographicPhase", False)
     parameters.put("demName", SRTM1SEC)
@@ -189,7 +189,7 @@ def get_goldstein_phase_filtering_config():
     parameters.put("FFTSizeString", "128")
     parameters.put("windowSizeString", "3")
     parameters.put("useCoherenceMask", False)
-    parameters.put("coherenceThreshold", 0.3)
+    parameters.put("coherenceThreshold", 0.2)
     return parameters
 
 
