@@ -47,6 +47,12 @@ def get_volume_for(selected_date: date, dam=17):
 
 
 def get_change_in_water_level(before_date, after_date):
+    '''
+    returns the change in water volume between two dates
+    :param before_date: datetime date object
+    :param after_date: datetime date object
+    :return: change in water volume in million cubic metres
+    '''
     before = get_volume_for(before_date)
     # print(f'{before_date}: {before} million cubic metres')
     after = get_volume_for(after_date)
