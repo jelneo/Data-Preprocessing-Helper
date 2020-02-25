@@ -18,9 +18,7 @@ Co-registration:
 Interferometric processing:
 4. Interferogram
 5. TOPSAR-Deburst
-<<< Mosaic results of IW2 and IW1
-<<< Subset
-<<< cont from below so don't have to read from disk. ensure results at this pt is correct
+
 
 Remove topographic induced phase from debursted interferogram:
 6. Read
@@ -40,16 +38,12 @@ preprocessing order depends on product type(slc,grd,raw) and product level(0,1,2
 """
 
 import logging
-logging.basicConfig(
-    format='%(asctime)s %(levelname)-8s %(name)s: %(message)s',
-    level=logging.INFO,
-    datefmt='%Y-%m-%d %H:%M:%S')
-logger = logging.getLogger(__name__)
 import gc
 import os
 import platform
 import re
 import subprocess
+from multiprocessing import Process
 
 from snappy import GPF
 from snappy import ProductIO
@@ -58,21 +52,28 @@ from snappy_tools import snappyconfigs, snappyoperators as sp
 from basicconfig import LC_WKT, POLARIZATIONS, SNAPHU_PATH, COMMON_FILES_NAME
 import filemanager
 
+default_pixel_spacing = 5.0
+logging.basicConfig(
+    format='%(asctime)s %(levelname)-8s %(name)s: %(message)s',
+    level=logging.INFO,
+    datefmt='%Y-%m-%d %H:%M:%S')
+logger = logging.getLogger(__name__)
+
 AOI_WKT = \
     "POLYGON((102.070752316744 14.565580568454624,102.36824148300377 14.565580568454624,102.36824148300377 14.322211910367955,102.070752316744 14.322211910367955,102.070752316744 14.565580568454624))"
-
 
 GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
 
 usr_system = platform.system()
 input_dir, output_dir = filemanager.get_file_paths_based_on_os(usr_system, filemanager.Product.slc)
-
-toRun = input("Run program? (Y/N)")
-if toRun == "Y" or toRun == "y":
-    pass
-else:
-    print("Exiting...")
-    exit(0)
+interferogram_dir = output_dir
+# interferogram_dir = output_dir + config.INTERFEROGRAM_PATH
+# toRun = input("Run program? (Y/N)")
+# if toRun == "Y" or toRun == "y":
+#     pass
+# else:
+#     print("Exiting...")
+#     exit(0)
 
 gc.enable()
 
@@ -85,10 +86,6 @@ def call_snaphu_command(snaphu_path):
             for line in snaphu_config_file:
                 if "snaphu -f" in line:
                     snaphu_cmd = line
-                # elif "LOGFILE" in line:
-                #     line = "#" + line
-            # print(''.join(snaphu_config_file))
-            # f.write(''.join(snaphu_config_file))
 
         snaphu_cmd = snaphu_cmd.replace("#", "").lstrip()
         logger.info(f'Command to run: {snaphu_cmd}')
@@ -100,41 +97,26 @@ def call_snaphu_command(snaphu_path):
     try:
         # navigate to correct dir
         os.chdir(snaphu_path)
-        result = subprocess.run(snaphu_cmd, stdout=subprocess.PIPE)
-        # logger.info(result)
+        subprocess.run(snaphu_cmd, stdout=subprocess.PIPE)
         logger.info('Snaphu unwrapping success')
     except subprocess.CalledProcessError as e:
         logger.critical("Snaphu error output:\n", e.output)
 
 
-existing_files = [f for f in os.listdir(output_dir) if f[0].isdigit()]
-count = 10
-# read list of files from common_file.txt in processing dir (already sorted in chronological order)
-# use normal for-loop
-with open(output_dir + COMMON_FILES_NAME) as f:
-    try:
-        files_to_process = f.readlines()[:-1]
-    except IOError:
-        print("File read error")
-
-for i in range(len(files_to_process) - 1):
+def process_SLC_product(master, slave):
+    # read list of files from common_file.txt in processing dir (already sorted in chronological order)
     ######################## COREGISTRATION ########################
-    # master_file = "S1B_IW_SLC__1SDV_20190101T111958_20190101T112025_014300_01A9AA_5FE6.SAFE"
-    # slave_file = "S1A_IW_SLC__1SDV_20190107T112033_20190107T112100_025371_02CF15_1237.SAFE"
-
-    # input_file_name1 = input_dir + master_file
-    master_file = files_to_process[i][:-1]
+    # master_file = "S1A_IW_SLC__1SDV_20190519T112034_20190519T112101_027296_03140A_CB6F"
+    master_file = master[:-1]
     timestamp1 = master_file.split("_")[5]
     date1 = timestamp1[:8]
 
     # input_file_name2 = input_dir + slave_file
-    slave_file = files_to_process[i + 1][:-1]
+    slave_file = slave[:-1]  # -1 to remove \n at the end
     timestamp2 = slave_file.split("_")[5]
     date2 = timestamp2[:8]
 
     combined_name = timestamp1 + "_" + timestamp2
-    if any(combined_name in ef for ef in existing_files):
-        continue
     logger.info("Current pair: " + combined_name)
     # Read in the Sentinel-1 data product:
     sentinel_1_m = ProductIO.readProduct(output_dir + master_file + f"_top_sar_split_{POLARIZATIONS}.dim")
@@ -144,7 +126,7 @@ for i in range(len(files_to_process) - 1):
     ### BACK-GEOCODING
     back_geocoded_prdt = sp.back_geocoding([sentinel_1_s, sentinel_1_m])
 
-    # ### ENHANCED SPECTRAL DIVERSITY
+    ### ENHANCED SPECTRAL DIVERSITY
     esd_prdt = sp.enhanced_spectral_diversity(back_geocoded_prdt)
 
     ######################## INTERFEROGRAM PROCESSING TO GET DINSAR ########################
@@ -153,7 +135,8 @@ for i in range(len(files_to_process) - 1):
 
     ### TOPSAR DEBURST
     deburst_prdt = sp.top_sar_deburst(interferogram_prdt, POLARIZATIONS)
-    deburst_path = output_dir + combined_name + f'_deburst_{POLARIZATIONS}'
+    # deburst_path = config.SLC_PARENT_DIR + "TestProc\\" + combined_name + f'_deburst_{POLARIZATIONS}'
+    deburst_path = interferogram_dir + combined_name + f'_deburst_{POLARIZATIONS}'
     ProductIO.writeProduct(deburst_prdt, deburst_path, "BEAM-DIMAP")
     logger.info('Write done')
 
@@ -164,27 +147,44 @@ for i in range(len(files_to_process) - 1):
     ### MULTILOOK
     multilook_prdt = sp.multilook(tpr_prdt)
 
-    # ### GOLDSTEIN PHASE FILTERING
+    ### GOLDSTEIN PHASE FILTERING
     goldstein_prdt = sp.goldstein_phase_filtering(multilook_prdt)
-    goldstein_path = output_dir + combined_name + f'_goldstein_{POLARIZATIONS}'
+    # goldstein_path = config.SLC_PARENT_DIR + "TestProc\\" + combined_name + f'_goldstein_{POLARIZATIONS}'
+    goldstein_path = interferogram_dir + combined_name + f'_goldstein_{POLARIZATIONS}'
 
     ProductIO.writeProduct(goldstein_prdt, goldstein_path, "BEAM-DIMAP")
     logger.info('Write done')
 
+    # ### GET COHERENCE
+    # # terrain correction
+    # tc_goldstein_prdt = sp.terrain_correction(goldstein_prdt, snappyconfigs.UTM_WGS84, default_pixel_spacing)
+    # is_found = False
+    # for src_band in tc_goldstein_prdt.getBands():
+    #     band_name = src_band.getName()
+    #     if band_name.startswith('coh'):
+    #         coh_prdt = sp.subset(tc_goldstein_prdt, None, band_name)
+    #         coh_path = interferogram_dir + combined_name + f'_coh_{POLARIZATIONS}'
+    #         ProductIO.writeProduct(coh_prdt, coh_path, 'GeoTIFF')
+    #         is_found = True
+    #         break
+    # if not is_found:
+    #     logger.critical("No coherence band is found in interferogram product!")
+
     ####################### PHASE UNWRAPPING ########################
     ### SNAPHU EXPORT
     in_goldstein_prdt = ProductIO.readProduct(goldstein_path + '.dim')
-    snaphu_output_path =  output_dir + SNAPHU_PATH + combined_name + f'_{POLARIZATIONS}' + '\\'
+    # snaphu_output_path = config.SLC_PARENT_DIR + "TestProc\\" + SNAPHU_PATH + combined_name + f'_{POLARIZATIONS}' + '\\'
+    snaphu_output_path = interferogram_dir + SNAPHU_PATH + combined_name + f'_{POLARIZATIONS}' + '\\'
     snaphu_export_prdt = sp.snaphu_export(in_goldstein_prdt, snaphu_output_path)
     ProductIO.writeProduct(snaphu_export_prdt, snaphu_output_path, "Snaphu")
-    logger.info("Snaphu Export write done")
+    logger.info("Snaphu Export done")
 
     ### Unwrapping
     call_snaphu_command(snaphu_output_path)
 
     unwrapped_phase_prdt = None
     for file in os.listdir(snaphu_output_path):
-        if file.endswith('.hdr') and 'UnwPhase_ifg' in file:
+        if file.endswith('.hdr') and 'UnwPhase' in file:
             unwrapped_phase_prdt = ProductIO.readProduct(snaphu_output_path + file)
     if unwrapped_phase_prdt is None:
         logger.critical(f'Unwrapped phase product not found in {snaphu_output_path} for phase unwrapping')
@@ -192,40 +192,65 @@ for i in range(len(files_to_process) - 1):
 
     # ### SNAPHU IMPORT
     snaphu_import_prdt = sp.snaphu_import([unwrapped_phase_prdt, in_goldstein_prdt])
-    snaphu_import_path = output_dir + combined_name + f'_snaphu_import_{POLARIZATIONS}'
+    # snaphu_import_path = config.SLC_PARENT_DIR + "TestProc\\" + combined_name + f'_snaphu_import_{POLARIZATIONS}'
+    snaphu_import_path = interferogram_dir + combined_name + f'_snaphu_import_{POLARIZATIONS}'
     ProductIO.writeProduct(snaphu_import_prdt, snaphu_import_path, "BEAM-DIMAP")
-
-    # ### PHASE TO DISPLACEMENT
-    # snaphu_import_prdt = ProductIO.readProduct(snaphu_import_path + '.dim')
-    # ptd_prdt = sp.phase_to_disp(snaphu_import_prdt)
-    # ptd_path = output_dir + combined_name + f'_ptd_{polarizations}'
-    # ProductIO.writeProduct(ptd_prdt, ptd_path, "BEAM-DIMAP")
 
     ### BandMaths
     in_snaphu_import_prdt = ProductIO.readProduct(snaphu_import_path + '.dim')
     unwrapped_phase_prdt_name = re.sub("\\..*$", "", unwrapped_phase_prdt.getName())
     unwrapped_phase_prdt_name = unwrapped_phase_prdt_name.replace('UnwPhase', 'Unw_Phase')
     unwrapped_phase_prdt_name = unwrapped_phase_prdt_name.replace('_VV', '')
-    vert_disp_prdt = sp.band_math(in_snaphu_import_prdt, 'vert_disp', f'({unwrapped_phase_prdt_name} * 0.056) / (-4 * PI * cos(rad(incident_angle)))')
+    vert_disp_prdt = sp.band_math(in_snaphu_import_prdt, 'vert_disp',
+                                  f'({unwrapped_phase_prdt_name} * 0.056) / (-4 * PI * cos(rad(incident_angle)))')
     # vert_disp_path = output_dir + combined_name + f'_vert_disp_subset_{polarizations}'
     # ProductIO.writeProduct(vert_disp_prdt, vert_disp_path, "BEAM-DIMAP")
 
     ### GEOCODING / TERRAIN CORRECTION
-    terrain_corrected_prdt = sp.terrain_correction(vert_disp_prdt, snappyconfigs.UTM_WGS84, 5.0)
+    terrain_corrected_prdt = sp.terrain_correction(vert_disp_prdt, snappyconfigs.UTM_WGS84, default_pixel_spacing)
 
     ### SUBSET
-    subset_prdt = sp.subset(terrain_corrected_prdt, LC_WKT) # TODO: replace wkt with cropped one, have to change to read wkt from file next time
-    subset_path = output_dir + combined_name + f'_vert_disp_subset_{POLARIZATIONS}'
+    subset_prdt = sp.subset(terrain_corrected_prdt,
+                            LC_WKT)
+    # subset_path = config.SLC_PARENT_DIR + "TestProc\\" + combined_name + f'_vert_disp_subset_{POLARIZATIONS}'
+    subset_path = interferogram_dir + combined_name + f'_vert_disp_subset_{POLARIZATIONS}'
     ProductIO.writeProduct(subset_prdt, subset_path, "BEAM-DIMAP")
 
-    count -= 1
-    if count == 0:
-        break
 
-logger.info("Completed")
-if usr_system == "Windows":
-    import winsound
-    duration = 1000  # milliseconds
-    freq = 1000  # Hz
-    winsound.Beep(freq, duration)
-    winsound.Beep(freq, duration)
+if __name__ == '__main__':
+    jobs = []
+    with open(output_dir + COMMON_FILES_NAME) as f:
+        try:
+            files_to_process = f.readlines()
+        except IOError:
+            print("File read error")
+    numCores = 2
+    # choose 30 after this
+    # prev 43
+
+    # # choose first image of every month:
+    # prevMth = 0
+    # monthly = []
+    # for k in range(0, len(files_to_process)):
+    #     f = files_to_process[k]
+    #     ts = f.split("_")[5]
+    #     date = ts[:8]
+    #     mth = int(date[4:6])
+    #     if mth != prevMth:
+    #         monthly.append(files_to_process[k])
+    #     prevMth = mth
+
+    start = 42
+    for j in range(start, start + numCores):
+        # p = Process(target=process_SLC_product, args=(monthly[j], monthly[j + 1],))
+        p = Process(target=process_SLC_product, args=(files_to_process[j], files_to_process[j + 1],))
+        jobs.append(p)
+        p.start()
+
+    # logger.info("Completed")
+    # if usr_system == "Windows":
+    #     import winsound
+    #     duration = 1000  # milliseconds
+    #     freq = 1000  # Hz
+    #     winsound.Beep(freq, duration)
+    #     winsound.Beep(freq, duration)
