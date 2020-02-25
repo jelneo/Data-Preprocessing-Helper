@@ -1,7 +1,7 @@
 # Directories
-GRD_PARENT_DIR = "E:\\GRD\\"
-SLC_PARENT_DIR = "D:\\FYP_IW\\"
-RESULTS_DIR = "E:\\Results\\"
+GRD_PARENT_DIR = "D:\\GRD\\"
+SLC_PARENT_DIR = "E:\\FYP_IW\\"
+RESULTS_DIR = "D:\\Results\\"
 
 ORIG_DIR = "Original\\"
 PROCESSING_DIR = "Processing\\"
@@ -11,6 +11,7 @@ GRD_MASK_DIR = "Mask\\"
 ML_DIR = "ML\\"
 LC_PATH = "LC\\"
 SNAPHU_PATH = "Snaphu\\"
+INTERFEROGRAM_PATH = "Interferogram\\"
 MANIFEST_EXTENSION = "\\manifest.safe"
 
 COMMON_FILES_NAME = "common_files.txt"
