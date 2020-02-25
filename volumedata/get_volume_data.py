@@ -8,6 +8,7 @@ from datetime import datetime, timezone, date
 # api_url_base = "http://www.thaiwater.net/DATA/REPORT/php/generate_rid_data.php?dam=17&n=2019&xyear=2019"
 api_url_base = "http://www.thaiwater.net/DATA/REPORT/php/generate_rid_data.php?"
 volume_keys = ['Upper Rule Curve', 'Lower Rule Curve', '2019']
+LAM_CHAE_DAM_ID = 17
 
 
 def get_volume_data(dam_id):
@@ -33,7 +34,7 @@ def convert_unix_to_datetime(time_list):
     return [datetime.utcfromtimestamp(t // 1000).replace(tzinfo=timezone.utc).astimezone(tz=None) for t in time_list]
 
 
-def get_volume_for(selected_date: date, dam=17):
+def get_volume_for(selected_date: date, dam=LAM_CHAE_DAM_ID):
     vol_data = get_volume_data(dam)
     year = selected_date.year
     data_yr = vol_data[str(year)]
@@ -81,7 +82,7 @@ def plot_volume_data(data_series, title, x_label, y_label):
 
 
 if __name__ == "__main__":
-    data = get_volume_data(17)
+    data = get_volume_data(LAM_CHAE_DAM_ID)
     print(data)
     # plot_volume_data(data['2019'], "Dam Volume for Lam Chae Dam", x_label="Time", y_label="Volume (million cubic metres)")
     before_date = date(2019, 1, 1)
