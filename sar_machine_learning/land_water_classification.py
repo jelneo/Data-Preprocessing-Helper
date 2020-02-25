@@ -1,38 +1,22 @@
+import logging
 import os
+import platform
+import statistics
 
 import numpy as np
-import rasterio
 import pandas as pd
-from PIL import Image, ImageDraw, ImageFilter, ImageEnhance
-from rasterio import mask, warp, crs
-from shapely.wkt import loads
-import pyproj
-from functools import partial
-from shapely.ops import transform
-from skimage.filters.rank import autolevel, mean_bilateral, enhance_contrast_percentile, minimum, maximum
-from skimage.morphology import disk, diameter_opening, diameter_closing, area_closing, area_opening, erosion
-from sklearn.cluster import KMeans
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.preprocessing import StandardScaler, normalize
-from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
-from sklearn.model_selection import cross_val_score
-from sklearn.svm import SVC
-from skimage.restoration import (denoise_tv_chambolle, denoise_bilateral,
-                                 denoise_wavelet, estimate_sigma)
-from skimage.filters import threshold_otsu, threshold_local, gaussian, threshold_multiotsu, rank, sobel, scharr, \
-    prewitt, roberts, sobel_h, try_all_threshold, threshold_yen, threshold_mean
-from scipy import ndimage as ndi, ndimage
-from skimage import exposure, feature
-from matplotlib import pyplot as plt
+import rasterio
 import seaborn as sns
-import logging
+from PIL import Image
+from matplotlib import pyplot as plt
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
 import basicconfig as config
-from trainingdata import get_labelled_feature_as_df, extract_features_from
 import filemanager
-import platform
-import basicconfig as config
+from trainingdata import get_labelled_feature_as_df, extract_features_from
 
 input_dir, output_dir = filemanager.get_file_paths_based_on_os(platform.system(), filemanager.Product.grd)
 input_dir = output_dir + config.LC_PATH
@@ -41,34 +25,22 @@ ml_dir = output_dir + config.ML_DIR
 classified_LC_dir = output_dir + config.LC_CLASSIFIED_DIR
 
 
-def convert_wkt_from_dd_to_m_to_polygon(wkt_in):
-    wkt = loads(wkt_in)
-    projection = partial(pyproj.transform, pyproj.Proj(init='epsg:4326'), pyproj.Proj(init='epsg:32645'))
-    return transform(projection, wkt)
-
-    # wkt = mapping(loads(wkt_in))
-    # crs_src = crs.CRS.from_epsg(4326)
-    # crs_dest = crs.CRS.from_epsg(32645)
-    # geom = warp.transform_geom(crs_src, crs_dest, wkt)
-    # return geom
+# def convert_wkt_from_dd_to_m_to_polygon(wkt_in):
+#     wkt = loads(wkt_in)
+#     projection = partial(pyproj.transform, pyproj.Proj(init='epsg:4326'), pyproj.Proj(init='epsg:32645'))
+#     return transform(projection, wkt)
+#
+#     # wkt = mapping(loads(wkt_in))
+#     # crs_src = crs.CRS.from_epsg(4326)
+#     # crs_dest = crs.CRS.from_epsg(32645)
+#     # geom = warp.transform_geom(crs_src, crs_dest, wkt)
+#     # return geom
 
 
 def get_random_forest_model(train_x, train_y, num_estimators):
     rf = RandomForestClassifier(n_estimators=num_estimators)
     rf.fit(train_x, train_y)
     return rf
-
-
-def get_k_means_model(train_x, num_clusters):
-    k_means = KMeans(n_clusters=num_clusters)
-    k_means.fit(train_x)
-    return k_means
-
-
-def get_k_nn_model(train_x, train_y, num_neighbors):
-    k_nn = KNeighborsClassifier(n_neighbors=num_neighbors)
-    k_nn.fit(train_x, train_y)
-    return k_nn
 
 
 # Initialise logger
@@ -79,7 +51,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# for folder in os.listdir(output_dir):
 def pretty_confusion_matrix(cm, title, timestamp, class_names, normalize=False, figsize=(8, 6), fontsize=15):
     df_cm = pd.DataFrame(cm, index=class_names, columns=class_names)
     fig, ax = plt.subplots(figsize=figsize)
@@ -112,13 +83,13 @@ def plot_feature_importance(feature_names, importances):
 
 
 # Get dataset
-# TODO: currently works for one prdt, loop over directories to classify all prdts
 loop_dir = input_dir
+acc_list = []
 for folder in os.listdir(loop_dir):
     # acc_list = []
     # feat_impt_list = []
-    logger.info(folder)
     if folder.endswith('.data') and f'glcm_{config.POLARIZATIONS}' in folder:
+            logger.info(folder)
         # for a in range(100):
             # feature_df = get_labelled_data(loop_dir + '\\' + folder)
             feature_df = get_labelled_feature_as_df(loop_dir + folder)
@@ -142,45 +113,47 @@ for folder in os.listdir(loop_dir):
             logger.info(f"num of water test pixels: {num_water_test.shape}")
 
             logger.info("Fitting model...")
-            clf = get_random_forest_model(tr_x_scaled, tr_y, num_estimators=50)
+
+
+            clf = get_random_forest_model(tr_x_scaled, tr_y, num_estimators=150)
+
             feat_list = data.columns.values.tolist()
-            feat_importances = clf.feature_importances_
-            plot_feature_importance(feat_list, feat_importances)
+            # feat_importances = clf.feature_importances_
+
+            # plot_feature_importance(feat_list, feat_importances)
             # feat_impt_list.append(feat_importances)
-            feat_impt_dict = list(zip(feat_list, feat_importances))
-            logger.info(f'Feature importance: {feat_impt_dict}')
-            # cls = get_k_means_model(tr_x_scaled, num_clusters=2)
-            # cls = get_k_nn_model(tr_x_scaled, tr_y, 8)
+
+            # feat_impt_dict = list(zip(feat_list, feat_importances))
+            # logger.info(f'Feature importance: {feat_impt_dict}')
 
             logger.info("Classifying and evaluating test set")
             test_y_pred = clf.predict(test_x_scaled)
-            # scores = cross_val_score(clf, )
 
-            # accuracy = accuracy_score(test_y, test_y_pred)
-            # acc_list.append(accuracy)
             confusion_mtx = confusion_matrix(test_y, test_y_pred)
             timestamp = folder.split("_")[4]
-            c_mtx = pretty_confusion_matrix(confusion_mtx, "Land-water classification", timestamp, ['Land', 'Water'])
-            c_mtx.savefig(ml_dir + "cm.jpg")
-            c_mtx.show()
+            # c_mtx = pretty_confusion_matrix(confusion_mtx, "Land-water classification", timestamp, ['Land', 'Water'])
+            # c_mtx.savefig(ml_dir + "cm.jpg")
+            # c_mtx.show()
+            acc_list.append(accuracy_score(test_y, test_y_pred))
             print(classification_report(test_y, test_y_pred))
 
             tn, fp, fn, tp = confusion_mtx.ravel()
             logger.debug("(tn: {}, fp: {}, fn: {}, tp: {}):".format(tn, fp, fn, tp))
 
             logger.info("Classifying whole image...")
-            prdt = rasterio.open(loop_dir + '\\' + folder + '\\' + f'Sigma0_{config.POLARIZATIONS}_db_GLCMMean.img')
+            prdt = rasterio.open(loop_dir + '\\' + folder + '\\' + f'Sigma0_{config.POLARIZATIONS}_GLCMMean.img')
             to_predict = extract_features_from(input_dir + folder)
             to_predict_scaled = scaler.transform(to_predict)
             predicted_flatten = clf.predict(to_predict_scaled)
             logger.info("Done predicting")
 
+            # visualize the prediction in black and white image
             predicted_flatten[predicted_flatten == config.LAND] = config.WHITE
             predicted_flatten[predicted_flatten == config.WATER] = config.BLACK
             predicted = np.reshape(predicted_flatten, (-1, prdt.width))
             predicted = predicted.astype('uint8')
             img = Image.fromarray(predicted)
-            img.show()
+            # img.show()
 
             with rasterio.open(
                     classified_LC_dir + f"land_water_mask_rf_{timestamp}_{config.POLARIZATIONS}.tif",
@@ -194,8 +167,10 @@ for folder in os.listdir(loop_dir):
                     transform=prdt.transform,
             ) as dst:
                 dst.write(predicted, 1)
-        # mean_acc = np.mean(np.array(acc_list))
-        # print(mean_acc)
-        # mean_impt = np.mean(np.array(feat_impt_list), axis=0)
-        # print(mean_impt)
-        # plot_feature_importance(feat_list, mean_impt)
+
+print(f"Mean accuracy: {statistics.mean(acc_list) * 100}%")
+# mean_acc = np.mean(np.array(acc_list))
+# print(mean_acc)
+# mean_impt = np.mean(np.array(feat_impt_list), axis=0)
+# print(mean_impt)
+# plot_feature_importance(feat_list, mean_impt)
