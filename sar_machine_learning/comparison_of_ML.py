@@ -34,7 +34,7 @@ loop_dir = output_dir + config.LC_PATH
 num_trees = 50
 num_neigh = 3
 c_val = 1.0
-for i in range(10):
+for i in range(11):
     clf_names = [f"RF (num trees = {num_trees})", f"K-NN (k = {num_neigh})", f"SVM with regularization , C = {c_val}"]
     results = [[] for j in range(len(clf_names))]
     count = 0
@@ -75,7 +75,7 @@ for i in range(10):
     for k in range(len(clf_names)):
         curr_result = np.array(results[k])
         clf_results.append(f"{clf_names[k]} - Accuracy: %.3f%% (%.3f%%)\n" % (curr_result.mean() * 100.0, curr_result.std() * 100.0))
-    clf_results.append("\n")
+    clf_results.append("\n\n")
     out = open(output_dir + "comparison_ML.txt", 'a')
     out.writelines(clf_results)
     out.close()
