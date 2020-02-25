@@ -98,55 +98,33 @@ def get_labelled_feature_as_df(path):
             # print(land_arr)
             border_land, border_water = classify_border(border_arr)
 
-            # if land_len < 0:
-            #     land_len = land_arr.shape[0] * land_arr.shape[1] + len(border_land)
-            # if water_len < 0:
-            #     water_len = water_arr.shape[0] * water_arr.shape[1] + len(border_water)
-
             # logger.info(land_arr.shape)
             # logger.info(water_arr.shape)
             # logger.info(raster.crs)
+
             land_1d = np.concatenate((land_arr.flatten(), border_land))
             water_1d = np.concatenate((water_arr.flatten(), border_water))
             land_1d = land_1d.tolist()
             water_1d = water_1d.tolist()
-            # min_num_samples = min(len(land_1d), len(water_1d))
+
+            # land_1d = land_arr.flatten().tolist()
+            # water_1d = water_arr.flatten().tolist()
+
             total_land_samples = len(land_1d)
             total_water_samples = len(water_1d)
-            # Ensure balanced data set
-            # while len(land_1d) > min_num_samples:
-            #     random_index = np.random.randint(0, len(land_1d))
-            #     land_1d.pop(random_index)
-            # while len(water_1d) > min_num_samples:
-            #     random_index = np.random.randint(0, len(water_1d))
-            #     water_1d.pop(random_index)
             land_water_arr = land_1d + water_1d
             df = pd.concat([df, pd.DataFrame(land_water_arr, columns=[raster.descriptions[0]])], axis=1, sort=False)
-    # print(df)
     label_df = create_labels(total_land_samples, total_water_samples)
     df = pd.concat([df, label_df], axis=1, sort=False)
-    # print(df)
     min_num_samples = min(total_water_samples, total_land_samples)
     if total_land_samples > min_num_samples:
         to_remove = np.random.choice(df[df['label'] == config.LAND].index, size=total_land_samples - min_num_samples, replace=False)
     else:
         to_remove = np.random.choice(df[df['label'] == config.WATER].index, size=total_water_samples - min_num_samples, replace=False)
     df.drop(to_remove)
-    # print(df.shape)
     return df
 
 
 def get_labelled_data(path):
     feature_bands = [get_labelled_feature_as_df(path + '\\' + f) for f in os.listdir(path) if f.endswith('.img')]
-    # feature_bands.append(create_labels(land_shape, water_shape))
     return pd.concat(feature_bands, axis=1, sort=False)
-
-
-# parent_dir = "E:\\GRD\\"
-# input_dir = parent_dir + "Original\\"
-# processing_dir = parent_dir + "Processing\\"
-# processing_dir_LC = processing_dir + "LC\\"
-# mask_dir = processing_dir + "LC_Mask\\"
-# ml_dir = parent_dir + "ML\\LC\\"
-# classified_LC_dir = processing_dir + "LC_classification\\"
-# print(get_labelled_feature_as_df(processing_dir_LC + "S1B_IW_GRDH_1SDV_20190101T111959_20190101T112024_014300_01A9AA_8AF3_glcm_VV.data"))
