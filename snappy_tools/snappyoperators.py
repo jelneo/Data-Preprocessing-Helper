@@ -45,8 +45,8 @@ def calibration(src, polarizations):
     return calibrated_prdt
 
 
-def subset(src, wkt):
-    parameters = snappyconfigs.get_subset_config(wkt)
+def subset(src, wkt, bands=None):
+    parameters = snappyconfigs.get_subset_config(wkt, bands)
     subset_prdt = GPF.createProduct("Subset", parameters, src)
     logger.info("Subset done")
     return subset_prdt
@@ -60,7 +60,7 @@ def speckle_filter(src):
 
 
 def terrain_correction(src, projection, pixel_spacing):
-    parameters = snappyconfigs.get_terrain_correction_config(projection, pixel_spacing)
+    parameters = snappyconfigs.get_terrain_correction_config(projection)
     terrain_corrected_prdt = GPF.createProduct("Terrain-Correction", parameters, src)
     logger.info("Terrain correction done")
     return terrain_corrected_prdt
