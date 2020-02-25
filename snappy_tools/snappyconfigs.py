@@ -46,10 +46,13 @@ def get_calibration_config(polarization: str):
     return parameters
 
 
-def get_subset_config(wkt):
-    geom = WKTReader().read(wkt)
+def get_subset_config(wkt, bands=None):
     parameters = HashMap()
-    parameters.put("geoRegion", geom)
+    if bands is not None:
+        parameters.put("sourceBands", bands)
+    if wkt is not None:
+        geom = WKTReader().read(wkt)
+        parameters.put("geoRegion", geom)
     parameters.put("copyMetadata", True)
     parameters.put("outputImageScaleInDb", False)
     return parameters
@@ -71,7 +74,7 @@ def get_speckle_filter_config():
     return parameters
 
 
-def get_terrain_correction_config(map_projection, pixel_spacing_in_meter: float):
+def get_terrain_correction_config(map_projection):
     parameters = HashMap()
     parameters.put("demResamplingMethod", "BILINEAR_INTERPOLATION")
     parameters.put("imgResamplingMethod", "BILINEAR_INTERPOLATION")
@@ -88,7 +91,6 @@ def get_terrain_correction_config(map_projection, pixel_spacing_in_meter: float)
     parameters.put("saveSelectedSourceBand", True)
     parameters.put("standardGridOriginX", 0.0)
     parameters.put("standardGridOriginY", 0.0)
-    parameters.put("pixelSpacingInMeter", pixel_spacing_in_meter)
     parameters.put("nodataValueAtSea", True)
     parameters.put("outputComplex", False)
     parameters.put("saveSigmaNought", False)
@@ -278,9 +280,9 @@ def get_band_math_config(band_name, expression):
 
 def get_convert_datatype_config():
     parameters = HashMap()
-    parameters.put("targetDataType", "float32")
-    parameters.put("targetScalingStr", "Logarithmic")
-    parameters.put("targetNoDataValue", "NaN")
+    parameters.put("targetDataType", "int8")
+    parameters.put("targetScalingStr", "Linear (between 95% clipped histogram)")
+    parameters.put("targetNoDataValue", "0.0")
     return parameters
 
 
