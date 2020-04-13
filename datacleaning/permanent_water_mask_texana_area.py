@@ -45,7 +45,7 @@ for folder in sorted_files:
     img = rasterio.open(loop_dir + folder)
     file_name = re.sub("\\..*$", "", folder)
     date = file_name.split('_')[-2][:8]
-    LC_polygon = convert_wkt_to_polygon(config.REDUCED_T)
+    LC_polygon = convert_wkt_to_polygon(config.TEXANA_WKT_REDUCED)
     [prdt_arr], prdt_xy = mask.mask(dataset=img, shapes=[LC_polygon], nodata=config.NO_DATA, all_touched=True, crop=True)
 
     height, width = prdt_arr.shape
