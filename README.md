@@ -1,6 +1,6 @@
 # Data-Preprocessing-Helper
 
-This repository contains the code for my final year project: Machine Learning Applied to Radar Remote Sensing: A case study of Lam Chae Reservoir.
+This repository contains the code for my final year project: **Machine Learning Applied to Radar Remote Sensing: A case study of Lam Chae Reservoir**.
 Details about each directory is listed below.
 
 ## datacleaning
