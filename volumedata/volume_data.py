@@ -10,7 +10,7 @@ climate_api_url_base = "https://www.thaiwater.net/graph/generate_data.php?type=r
 volume_keys = ['2020', '2019', '2018']
 LAM_CHAE_DAM_ID = 17
 NAKHON_RATCHASIMA_STATION_CODE = '431201'
-with open('lam_chae_info.json') as json_file:
+with open('volumedata/lam_chae_info.json') as json_file:
     older_lc_data = json.load(json_file)
 
 
