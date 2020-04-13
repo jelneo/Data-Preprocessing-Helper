@@ -3,6 +3,8 @@ import os
 import re
 import sys
 
+from skimage.morphology import remove_small_holes
+
 from trainingdata import convert_wkt_to_polygon
 
 logging.basicConfig(
@@ -24,15 +26,8 @@ import basicconfig as config
 
 
 input_dir, output_dir = filemanager.get_file_paths_based_on_os(platform.system(), filemanager.Product.grd)
-mask_dir = config.GRD_PARENT_DIR + "Processing_2020\\" + config.GRD_MASK_DIR
-classified_LC_dir = config.GRD_PARENT_DIR + "Processing_2020\\" + config.LC_CLASSIFIED_DIR
-# mask_dir = config.GRD_PARENT_DIR + "Processing_2017\\" + config.GRD_MASK_DIR
-# classified_LC_dir = config.GRD_PARENT_DIR + "Processing_2017\\" + config.LC_CLASSIFIED_DIR
-# mask_dir = config.GRD_PARENT_DIR + "Processing_2018\\" + config.GRD_MASK_DIR
-# classified_LC_dir = config.GRD_PARENT_DIR + "Processing_2018\\" + config.LC_CLASSIFIED_DIR
-# mask_dir = output_dir + config.GRD_MASK_DIR
-# classified_LC_dir = output_dir + config.LC_CLASSIFIED_DIR
-
+mask_dir = "D:\\Texana\\Processing\\" + config.GRD_MASK_DIR
+classified_LC_dir = "D:\\Texana\\Processing\\" + config.LC_CLASSIFIED_DIR
 
 
 def is_area_larger_than(image, i, j, iterations, thres):
@@ -47,29 +42,32 @@ def is_area_larger_than(image, i, j, iterations, thres):
     return False
 
 
-sample_spacing = 70
-area_threshold = 0.96 * sample_spacing * sample_spacing
 mask_json = {}
 loop_dir = classified_LC_dir
-accuracy = []
-for folder in os.listdir(loop_dir):
+sorted_files = sorted(os.listdir(loop_dir))
+for folder in sorted_files:
     logger.info(folder)
     img = rasterio.open(loop_dir + folder)
-    LC_polygon = convert_wkt_to_polygon(config.LC_WKT_REDUCED)
+    file_name = re.sub("\\..*$", "", folder)
+    date = file_name.split('_')[-2][:8]
+    LC_polygon = convert_wkt_to_polygon(config.REDUCED_T)
     [prdt_arr], prdt_xy = mask.mask(dataset=img, shapes=[LC_polygon], nodata=config.NO_DATA, all_touched=True, crop=True)
-    # msk = Image.open(loop_dir + folder)
     msk = Image.fromarray(prdt_arr)
     msk.show()
 
     width, height = prdt_arr.shape[1], prdt_arr.shape[0]
     binary_img = prdt_arr
     logger.info(binary_img.shape)
+    sample_spacing = 70
+    area_threshold = 0.96 * sample_spacing * sample_spacing
     done = False
+
     # To reduce unnecessary checking, we starting search for the reservoir at an arbitrary point
     for x in range(0, height, sample_spacing // 2):
         for y in range(0, width, sample_spacing // 2):
             if binary_img[x][y] == config.BLACK:
-                if is_area_larger_than(binary_img, x, y, sample_spacing, area_threshold) and is_area_larger_than(binary_img, x + sample_spacing // 2, y, sample_spacing, area_threshold):
+                if is_area_larger_than(binary_img, x, y, sample_spacing, area_threshold) and is_area_larger_than(
+                        binary_img, x + sample_spacing // 2, y, sample_spacing, area_threshold):
                     logger.info("Found the reservoir!")
                     ImageDraw.floodfill(msk, (y, x), config.RESERVOIR_COLOR)
                     done = True
@@ -79,14 +77,13 @@ for folder in os.listdir(loop_dir):
     if not done:
         logger.critical("No reservoir was found.")
         sys.exit("No reservoir was found.")
+
     msk_arr = np.array(msk).astype(np.uint8)
-    msk_arr[msk_arr == config.WHITE] = config.BLACK
-    msk_arr[msk_arr == config.NO_DATA] = config.BLACK
+    msk_arr[msk_arr == config.NO_DATA] = config.LAND
+    msk_arr[msk_arr == config.WHITE] = config.LAND
+    msk_arr = remove_small_holes(msk_arr, area_threshold=2048).astype(np.uint8)
     msk_arr[msk_arr == config.WATER] = config.RESERVOIR_COLOR
 
-
-    file_name = re.sub("\\..*$", "", folder)
-    date = file_name.split('_')[-2][:8]
     mask_prdt_path = mask_dir + date + f'_{config.POLARIZATIONS}' + '.tif'
     with rasterio.open(
         mask_prdt_path,
