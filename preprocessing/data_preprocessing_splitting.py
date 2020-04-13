@@ -44,7 +44,6 @@ gc.enable()
 logger.info("Start data preprocessing for top sar splitting")
 
 input_dir, output_dir = filemanager.get_file_paths_based_on_os(platform.system(), filemanager.Product.slc)
-# input_dir = "E://SLC//Original//"
 # due to java heap memory space limits, only able to process 15 products at a time
 count = 15
 existing_files = [f[:-21] for f in os.listdir(output_dir) if '.dim' in f and 'top_sar' in f]
@@ -52,11 +51,6 @@ existing_files = [f[:-21] for f in os.listdir(output_dir) if '.dim' in f and 'to
 for folder in os.listdir(input_dir):
     if ".SAFE" not in folder:
         continue
-    # if "S1B_IW_SLC__1SDV_20190101T111958_20190101T112025_014300_01A9AA_5FE6.SAFE" != folder \
-    #         and "S1A_IW_SLC__1SDV_20190119T112033_20190119T112100_025546_02D56B_2E7C.SAFE" != folder:
-    #     continue
-    # if 'S1B_IW_SLC__1SDV_20190206T111957_20190206T112024_014825_01BAA2_194F.SAFE' != folder:
-    #     continue
 
     input_file_name = input_dir + folder
     file_name = re.sub("\\..*$", "", folder)
