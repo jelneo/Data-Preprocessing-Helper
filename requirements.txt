@@ -1,0 +1,13 @@
+keras
+dateutil
+matplotlib
+scikit-learn
+rasterio
+numpy
+pillow
+shapely
+seaborn
+scikit-image
+proj
+pyproj
+requests
