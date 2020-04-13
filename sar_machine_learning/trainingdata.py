@@ -1,37 +1,25 @@
 """
 Functions for generating training data for machine learning
 """
+import json
 import os
+from datetime import datetime
+from functools import partial
 
 import numpy as np
-import rasterio
 import pandas as pd
-from PIL import Image, ImageDraw, ImageFilter, ImageEnhance
-from rasterio import mask, warp, crs
-from shapely.wkt import loads
 import pyproj
-from functools import partial
+import rasterio
+from rasterio import mask
 from shapely.ops import transform
-from skimage.filters.rank import autolevel, mean_bilateral, enhance_contrast_percentile, minimum, maximum
-from skimage.morphology import disk, diameter_opening, diameter_closing, area_closing, area_opening, erosion
-from sklearn.cluster import KMeans
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.preprocessing import StandardScaler, normalize
-from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
-from sklearn.model_selection import cross_val_score
-from sklearn.svm import SVC
-from skimage.restoration import (denoise_tv_chambolle, denoise_bilateral,
-                                 denoise_wavelet, estimate_sigma)
-from skimage.filters import threshold_otsu, threshold_local, gaussian, threshold_multiotsu, rank, sobel, scharr, \
-    prewitt, roberts, sobel_h, try_all_threshold, threshold_yen, threshold_mean
-from scipy import ndimage as ndi, ndimage
-from skimage import exposure, feature
-from matplotlib import pyplot as plt
-import seaborn as sns
-import logging
+from shapely.wkt import loads
+from skimage.filters import threshold_mean, threshold_triangle
+from skimage.morphology import opening
+from sklearn.preprocessing import normalize
+
 import basicconfig as config
+from volumedata import volume_data
+
 
 def convert_wkt_to_polygon(wkt_in):
     return loads(wkt_in)
@@ -58,57 +46,55 @@ def extract_features_from(path):
 
 def classify_border(border_array):
     norm_arr = normalize(border_array)
-    filtered_arr = area_closing(norm_arr, area_threshold=512)
-    filtered_arr = erosion(filtered_arr)
-    filtered_arr = erosion(filtered_arr)
-    filtered_arr = erosion(filtered_arr)
+    kernel = np.ones((3, 3)).astype("uint8")
+    filtered_arr = opening(norm_arr, kernel)
+    # thres = threshold_triangle(filtered_arr)
     thres = threshold_mean(filtered_arr)
     thres_img = filtered_arr > thres
     thres_img = thres_img.astype('uint8')
-    land_pix = []
-    water_pix = []
-    for i in range(len(border_array)):
-        for j in range(len(border_array[0])):
-            if thres_img[i][j] == 1:  # land
-                land_pix.append(border_array[i][j])
-            else:  # water
-                water_pix.append(border_array[i][j])
-    return land_pix, water_pix
+    return thres_img
 
 
-def get_labelled_feature_as_df(path):
+def get_labelled_features_as_df(path):
     df = pd.DataFrame()
     total_land_samples = 0
     total_water_samples = 0
     for f in os.listdir(path):
         if f.endswith('.img'):
-            # global land_shape, water_shape
             raster = rasterio.open(path + '\\' + f)
-            # print({i: dtype for i, dtype in zip(raster.indexes, raster.dtypes)})
-            land_polygon = convert_wkt_to_polygon(config.LAND_POLYGON)
-            water_polygon = convert_wkt_to_polygon(config.WATER_POLYGON)
-            border_polygon = convert_wkt_to_polygon(config.BORDER_POLYGON)
+            land_arr = np.empty(0)
+            water_arr = np.empty(0)
+            # obtain threshold mask
+            mean_raster = rasterio.open(path + '\\Sigma0_VV_GLCMMean.img')
+            border_polygon = convert_wkt_to_polygon(config.BORDER_POLYGON_TEXANA)
+            # border_polygon = convert_wkt_to_polygon(config.BORDER_POLYGON)
+            [border_arr], border_xy = mask.mask(dataset=mean_raster, shapes=[border_polygon], all_touched=True, crop=True)
+            thres_mask = classify_border(border_arr)
+            for land_wkt, water_wkt in zip(config.LAND_POLYGON_TEXANA, config.WATER_POLYGON_TEXANA):
+            # for land_wkt, water_wkt in zip(config.LAND_POLYGON, config.WATER_POLYGON):
+                land_polygon = convert_wkt_to_polygon(land_wkt)
+                water_polygon = convert_wkt_to_polygon(water_wkt)
 
-            [land_arr], land_xy = mask.mask(dataset=raster, shapes=[land_polygon], all_touched=True, crop=True)
-            [water_arr], water_xy = mask.mask(dataset=raster, shapes=[water_polygon], all_touched=True, crop=True)
+                [land_raster], land_xy = mask.mask(dataset=raster, shapes=[land_polygon], all_touched=True, crop=True)
+                [water_raster], water_xy = mask.mask(dataset=raster, shapes=[water_polygon], all_touched=True, crop=True)
+                land_arr = np.concatenate((land_arr, land_raster.flatten()))
+                water_arr = np.concatenate((water_arr, water_raster.flatten()))
+            border_polygon = convert_wkt_to_polygon(config.BORDER_POLYGON_TEXANA)
+            # border_polygon = convert_wkt_to_polygon(config.BORDER_POLYGON)
             [border_arr], border_xy = mask.mask(dataset=raster, shapes=[border_polygon], all_touched=True, crop=True)
 
-            # plt.imshow(border_arr, cmap='gray')
-            # plt.show()
-            # print(land_arr)
-            border_land, border_water = classify_border(border_arr)
-
-            # logger.info(land_arr.shape)
-            # logger.info(water_arr.shape)
-            # logger.info(raster.crs)
-
+            border_land = []
+            border_water = []
+            for i in range(len(border_arr)):
+                for j in range(len(border_arr[0])):
+                    if thres_mask[i][j] == 1:  # land
+                        border_land.append(border_arr[i][j])
+                    else:  # water
+                        border_water.append(border_arr[i][j])
             land_1d = np.concatenate((land_arr.flatten(), border_land))
             water_1d = np.concatenate((water_arr.flatten(), border_water))
             land_1d = land_1d.tolist()
             water_1d = water_1d.tolist()
-
-            # land_1d = land_arr.flatten().tolist()
-            # water_1d = water_arr.flatten().tolist()
 
             total_land_samples = len(land_1d)
             total_water_samples = len(water_1d)
@@ -126,5 +112,56 @@ def get_labelled_feature_as_df(path):
 
 
 def get_labelled_data(path):
-    feature_bands = [get_labelled_feature_as_df(path + '\\' + f) for f in os.listdir(path) if f.endswith('.img')]
+    feature_bands = [get_labelled_features_as_df(path + '\\' + f) for f in os.listdir(path) if f.endswith('.img')]
     return pd.concat(feature_bands, axis=1, sort=False)
+
+
+def convert_wkt_from_dd_to_m_to_polygon(wkt_in):
+    projection = partial(pyproj.transform, pyproj.Proj(init="epsg:4326"), pyproj.Proj(init="epsg:32645"))
+    wkt = loads(wkt_in)
+    return transform(projection, wkt)
+
+
+def get_area_vol_as_df(mask_path):
+    data = open(mask_path, 'r', encoding='utf-8')
+    mask_dict = json.load(data)
+    data.close()
+
+    data = []
+    sorted_files = sorted(mask_dict.keys())
+    for file_name in sorted_files:
+        area = convert_wkt_from_dd_to_m_to_polygon(mask_dict[file_name]).area
+        date = datetime.strptime(file_name.split('_')[0], config.DATE_FORMAT).date()
+        vol = volume_data.get_volume_for_date(date)
+        data.append([date, area, vol])
+
+    df = pd.DataFrame(data, columns=['date', 'area', 'volume'])
+    return df
+
+
+def get_drought_df(mask_path):
+    data = open(mask_path, 'r', encoding='utf-8')
+    mask_dict = json.load(data)
+    data.close()
+
+    # data = []
+    sorted_files = sorted(mask_dict.keys())
+    date_list = []
+    area_list = []
+
+    for file_name in sorted_files:
+        area = convert_wkt_from_dd_to_m_to_polygon(mask_dict[file_name]).area
+        date = datetime.strptime(file_name.split('_')[0], config.DATE_FORMAT).date()
+        date_list.append(date)
+        area_list.append(area)
+
+    # inflows = volume_data.get_inflow_for_dates(date_list[0].year, date_list)
+    # temperatures = volume_data.get_temp_for_dates(date_list)
+    volumes = volume_data.get_volume_for_dates(date_list[0].year, date_list)
+    data = zip(date_list, volumes, area_list)
+    # data = zip(date_list, volumes, area_list, inflows, temperatures)
+
+    df = pd.DataFrame(data, columns=['date', 'volume', 'area'])
+    # df = pd.DataFrame(data, columns=['date', 'volume', 'area', 'inflow', 'temp'])
+    df.dropna(inplace=True)
+    return df

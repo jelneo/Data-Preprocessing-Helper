@@ -9,6 +9,7 @@ import rasterio
 import seaborn as sns
 from PIL import Image
 from matplotlib import pyplot as plt
+from rasterio.crs import CRS
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 from sklearn.model_selection import train_test_split
@@ -16,25 +17,22 @@ from sklearn.preprocessing import StandardScaler
 
 import basicconfig as config
 import filemanager
-from trainingdata import get_labelled_feature_as_df, extract_features_from
+from trainingdata import get_labelled_features_as_df, extract_features_from
 
 input_dir, output_dir = filemanager.get_file_paths_based_on_os(platform.system(), filemanager.Product.grd)
-input_dir = output_dir + config.LC_PATH
+# input_dir = output_dir + config.LC_PATH
+# classified_LC_dir = output_dir + config.LC_CLASSIFIED_DIR
+# input_dir = config.GRD_PARENT_DIR + "Processing_2020\\" + config.LC_PATH
+# classified_LC_dir = config.GRD_PARENT_DIR + "Processing_2020\\" + config.LC_CLASSIFIED_DIR
+# input_dir = config.GRD_PARENT_DIR + "Processing_2018\\" + config.LC_PATH
+# classified_LC_dir = config.GRD_PARENT_DIR + "Processing_2018\\" + config.LC_CLASSIFIED_DIR
+# input_dir = config.GRD_PARENT_DIR + "Processing_2017\\" + config.LC_PATH
+# classified_LC_dir = config.GRD_PARENT_DIR + "Processing_2017\\" + config.LC_CLASSIFIED_DIR
+# input_dir = config.GRD_PARENT_DIR + "Processing_2016\\" + config.LC_PATH
+# classified_LC_dir = config.GRD_PARENT_DIR + "Processing_2016\\" + config.LC_CLASSIFIED_DIR
 
-ml_dir = output_dir + config.ML_DIR
-classified_LC_dir = output_dir + config.LC_CLASSIFIED_DIR
-
-
-# def convert_wkt_from_dd_to_m_to_polygon(wkt_in):
-#     wkt = loads(wkt_in)
-#     projection = partial(pyproj.transform, pyproj.Proj(init='epsg:4326'), pyproj.Proj(init='epsg:32645'))
-#     return transform(projection, wkt)
-#
-#     # wkt = mapping(loads(wkt_in))
-#     # crs_src = crs.CRS.from_epsg(4326)
-#     # crs_dest = crs.CRS.from_epsg(32645)
-#     # geom = warp.transform_geom(crs_src, crs_dest, wkt)
-#     # return geom
+input_dir = "D:\\Texana\\" + "Processing\\" + config.LC_PATH
+classified_LC_dir = "D:\\Texana\\" + "Processing\\" + config.LC_CLASSIFIED_DIR
 
 
 def get_random_forest_model(train_x, train_y, num_estimators):
@@ -75,8 +73,6 @@ def plot_feature_importance(feature_names, importances):
     plt.figure()
     plt.title("Feature importances")
     plt.bar(feature_names, importances)
-    # plt.xticks(range(X.shape[1]), indices)
-    # plt.xlim([-1, X.shape[1]])
     plt.xticks(rotation='90')
     plt.tight_layout()
     plt.show()
@@ -92,7 +88,7 @@ for folder in os.listdir(loop_dir):
             logger.info(folder)
         # for a in range(100):
             # feature_df = get_labelled_data(loop_dir + '\\' + folder)
-            feature_df = get_labelled_feature_as_df(loop_dir + folder)
+            feature_df = get_labelled_features_as_df(loop_dir + folder)
             # print(feature_df)
             logger.info(feature_df.dtypes)
             data = feature_df.iloc[:, :-1]
@@ -115,7 +111,7 @@ for folder in os.listdir(loop_dir):
             logger.info("Fitting model...")
 
 
-            clf = get_random_forest_model(tr_x_scaled, tr_y, num_estimators=150)
+            clf = get_random_forest_model(tr_x_scaled, tr_y, num_estimators=100)
 
             feat_list = data.columns.values.tolist()
             # feat_importances = clf.feature_importances_
@@ -147,12 +143,12 @@ for folder in os.listdir(loop_dir):
             predicted_flatten = clf.predict(to_predict_scaled)
             logger.info("Done predicting")
 
-            # visualize the prediction in black and white image
+            # convert the prediction in black and white image
             predicted_flatten[predicted_flatten == config.LAND] = config.WHITE
             predicted_flatten[predicted_flatten == config.WATER] = config.BLACK
             predicted = np.reshape(predicted_flatten, (-1, prdt.width))
             predicted = predicted.astype('uint8')
-            img = Image.fromarray(predicted)
+            # img = Image.fromarray(predicted)
             # img.show()
 
             with rasterio.open(
