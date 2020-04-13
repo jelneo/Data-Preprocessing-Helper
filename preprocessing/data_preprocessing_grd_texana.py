@@ -34,11 +34,8 @@ GPF.getDefaultInstance().getOperatorSpiRegistry().loadOperatorSpis()
 
 usr_system = platform.system()
 input_dir, output_dir = filemanager.get_file_paths_based_on_os(platform.system(), filemanager.Product.grd)
-# input_dir = "G:\\Original\\"
-# output_dir = output_dir + config.LC_PATH
-
-input_dir = config.GRD_PARENT_DIR + "Original_2020\\"
-output_dir = config.GRD_PARENT_DIR + "Processing_2020\\" + config.LC_PATH
+input_dir = "D:\\Texana\\" + "Original_2018\\"
+output_dir = "D:\\Texana\\" + "Processing_pre_2019\\" + config.LC_PATH
 
 logger = logging.getLogger(__name__)
 logger.info("Start data preprocessing")
@@ -47,17 +44,7 @@ gc.enable()
 # (make sure that the data is already unzipped)
 
 existing_files = [f[:-7] for f in os.listdir(output_dir) if '.dim' in f]
-
-# # For blank images
-# existing_files = [line.rstrip('\n') for line in open(output_dir + "outliers.txt")]
-# print(existing_files)
-
-# to find common GRD and SLC products
-# with open(common_files_dir + config.COMMON_FILES_NAME) as f:
-#     common_files = f.readlines()
-
-
-count = 6
+count = 5
 
 for folder in os.listdir(input_dir):
 
@@ -72,17 +59,8 @@ for folder in os.listdir(input_dir):
     if any(file_name in ef for ef in existing_files):
         continue
 
-    # # to find common GRD and SLC products
-    # if any(cf[:-1] in file_name for cf in common_files):
-    #     continue
-
-    # # for blank images
-    # if not any(ef in file_name for ef in existing_files):
-    #     continue
-
     logger.info("Current folder: " + folder)
     # Read in the Sentinel-1 data product:
-    # sentinel_1 = ProductIO.readProduct(input_file_name + filemanager.manifest_extension)
     sentinel_1 = ProductIO.readProduct(input_file_name)
     logger.debug(sentinel_1)
 
@@ -102,7 +80,7 @@ for folder in os.listdir(input_dir):
     terrain_corrected_prdt = sp.terrain_correction(calibrated_prdt, snappyconfigs.UTM_WGS84)
 
     ### SUBSET
-    subset_prdt = sp.subset(terrain_corrected_prdt, config.LC_WKT)
+    subset_prdt = sp.subset(terrain_corrected_prdt, config.TEXANA_WKT)
 
     ### Convert datatype
     cnv_prdt = sp.convert_datatype(subset_prdt, "int8")
