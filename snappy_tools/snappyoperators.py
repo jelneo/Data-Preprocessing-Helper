@@ -59,7 +59,7 @@ def speckle_filter(src):
     return speckle_prdt
 
 
-def terrain_correction(src, projection, pixel_spacing):
+def terrain_correction(src, projection):
     parameters = snappyconfigs.get_terrain_correction_config(projection)
     terrain_corrected_prdt = GPF.createProduct("Terrain-Correction", parameters, src)
     logger.info("Terrain correction done")
@@ -101,8 +101,8 @@ def band_math(src, band_name, expression):
     return msk_prdt
 
 
-def convert_datatype(src):
-    parameters = snappyconfigs.get_convert_datatype_config()
+def convert_datatype(src, dtype):
+    parameters = snappyconfigs.get_convert_datatype_config(dtype)
     cnv_prdt = GPF.createProduct("Convert-Datatype", parameters, src)
     logger.info("Convert-Datatype done")
     return cnv_prdt

@@ -1,3 +1,7 @@
+"""
+This file contains parameter hash maps for snappy"s preprocessing operators
+"""
+
 from snappy import HashMap
 from snappy import WKTReader
 from snappy import jpy
@@ -17,10 +21,6 @@ EPSG_32645 = 'EPSG:32645'
 UTM_WGS84 = "GEOGCS[\"WGS84(DD)\",DATUM[\"WGS84\",SPHEROID[\"WGS84\", 6378137.0, 298.257223563]]," \
             "PRIMEM[\"Greenwich\", 0.0],UNIT[\"degree\", 0.017453292519943295],AXIS[\"Geodetic longitude\", EAST]," \
             "AXIS[\"Geodetic latitude\", NORTH]] "
-
-"""
-This file contains parameter hash maps for snappy"s preprocessing operators
-"""
 
 
 def get_thermal_noise_removal_config():
@@ -278,9 +278,9 @@ def get_band_math_config(band_name, expression):
     return parameters
 
 
-def get_convert_datatype_config():
+def get_convert_datatype_config(dtype):
     parameters = HashMap()
-    parameters.put("targetDataType", "int8")
+    parameters.put("targetDataType", dtype)
     parameters.put("targetScalingStr", "Linear (between 95% clipped histogram)")
     parameters.put("targetNoDataValue", "0.0")
     return parameters
@@ -294,7 +294,7 @@ def get_glcm_config():
     parameters.put("quantizationLevelsStr", "32")
     parameters.put("displacement", 4)
     # features of GLCM
-    parameters.put("outputContrast", False)
+    parameters.put("outputContrast", True)
     parameters.put("outputDissimilarity", False)
     parameters.put("outputHomogeneity", False)
     parameters.put("outputASM", False)
