@@ -2,7 +2,8 @@ import os
 import rasterio
 import numpy as np
 
-parent_dir = "D:\\FYP_IW\\"
+parent_dir = "D:\\Texana\\Processing"
+# parent_dir = "D:\\FYP_IW\\"
 # parent_dir = "E:\\GRD\\"
 input_dir = parent_dir + "Original\\"
 output_dir = parent_dir + "Processing\\"
